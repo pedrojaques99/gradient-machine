@@ -24,7 +24,7 @@ export function UploadButton({ onUpload, isLoading }: UploadButtonProps) {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="icon"
       className="h-10 w-10"
       onClick={handleClick}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGradient } from '../contexts/GradientContext';
 import { ColorStop, GradientStyle } from '../lib/utils/colors';
 import { ColorStopTrack } from './ColorStopTrack';
+import { cn } from '../lib/utils';
 
 interface WebGLGradientProps {
   colorStops: ColorStop[];
@@ -19,20 +20,23 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
   const [isDragging, setIsDragging] = useState(false);
   const rafRef = useRef<number | undefined>(undefined);
 
-  // Initialize canvas
+  // Initialize canvas size
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Set canvas size with device pixel ratio
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
+    canvas.width = state.canvasWidth * dpr;
+    canvas.height = state.canvasHeight * dpr;
+    canvas.style.width = `${state.canvasWidth}px`;
+    canvas.style.height = `${state.canvasHeight}px`;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.scale(dpr, dpr);
     }
-  }, []);
+  }, [state.canvasWidth, state.canvasHeight]);
 
   // Render function
   const render = useCallback(() => {
@@ -310,20 +314,25 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
   }, [draggingIndex]);
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden bg-background/10 backdrop-blur-sm border border-border/50 transition-shadow duration-200 hover:shadow-lg">
+    <div className="relative w-full h-full">
       <canvas
         ref={canvasRef}
-        className={`
-          w-full aspect-[3/2] rounded-t-xl
-          transition-all duration-200
-          ${isDragging ? 'cursor-grabbing' : hoverIndex !== null ? 'cursor-grab' : 'cursor-default'}
-        `}
+        className={cn(
+          "w-full h-full touch-none select-none",
+          "transition-shadow duration-200",
+          "hover:shadow-md",
+          draggingIndex !== null && "cursor-grabbing",
+          hoverIndex !== null && "cursor-grab"
+        )}
+        style={{
+          width: `${state.canvasWidth}px`,
+          height: `${state.canvasHeight}px`
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ touchAction: 'none' }}
       />
       <ColorStopTrack 
         colorStops={colorStops}

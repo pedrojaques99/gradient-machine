@@ -22,6 +22,8 @@ interface GradientState {
   gradientSize: number;
   gitterIntensity: number;
   halftoneEnabled: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
 type GradientAction =
@@ -38,7 +40,9 @@ type GradientAction =
   | { type: 'SET_HANDLE_SIZE'; payload: number }
   | { type: 'SET_GRADIENT_SIZE'; payload: number }
   | { type: 'SET_GITTER_INTENSITY'; payload: number }
-  | { type: 'SET_HALFTONE_MODE'; payload: boolean };
+  | { type: 'SET_HALFTONE_MODE'; payload: boolean }
+  | { type: 'SET_CANVAS_WIDTH'; payload: number }
+  | { type: 'SET_CANVAS_HEIGHT'; payload: number };
 
 const initialState: GradientState = {
   colorStops: [
@@ -53,7 +57,9 @@ const initialState: GradientState = {
   handleSize: 16,
   gradientSize: 100,
   gitterIntensity: 0,
-  halftoneEnabled: false
+  halftoneEnabled: false,
+  canvasWidth: 800,
+  canvasHeight: 400
 };
 
 function gradientReducer(state: GradientState, action: GradientAction): GradientState {
@@ -98,6 +104,10 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
       return { ...state, gitterIntensity: action.payload };
     case 'SET_HALFTONE_MODE':
       return { ...state, halftoneEnabled: action.payload };
+    case 'SET_CANVAS_WIDTH':
+      return { ...state, canvasWidth: action.payload };
+    case 'SET_CANVAS_HEIGHT':
+      return { ...state, canvasHeight: action.payload };
     default:
       return state;
   }

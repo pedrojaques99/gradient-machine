@@ -23,6 +23,10 @@ import { useGradient, useColorStops } from './contexts/GradientContext';
 import { Toaster } from './components/ui/toaster';
 import { v4 as uuidv4 } from 'uuid';
 import { Switch } from '@/app/components/ui/switch';
+import { Input } from './components/ui/input';
+
+// Add type for input change events
+type InputChangeEvent = React.ChangeEvent<HTMLInputElement>;
 
 export default function Home() {
   const [image, setImage] = useState<string | null>(null);
@@ -191,7 +195,7 @@ export default function Home() {
                   }}
                 />
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => fileInputRef.current?.click()}
@@ -390,6 +394,74 @@ export default function Home() {
           </div>
         </SidebarSection>
 
+        {/* Canvas Size Controls */}
+        <SidebarSection title="Canvas Format">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const isVertical = state.canvasHeight > state.canvasWidth;
+                  const size = isVertical ? 800 : 1000;
+                  dispatch({ type: 'SET_CANVAS_WIDTH', payload: size });
+                  dispatch({ type: 'SET_CANVAS_HEIGHT', payload: size });
+                }}
+              >
+                1:1
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const isVertical = state.canvasHeight > state.canvasWidth;
+                  if (isVertical) {
+                    dispatch({ type: 'SET_CANVAS_WIDTH', payload: 900 });
+                    dispatch({ type: 'SET_CANVAS_HEIGHT', payload: 1600 });
+                  } else {
+                    dispatch({ type: 'SET_CANVAS_WIDTH', payload: 1600 });
+                    dispatch({ type: 'SET_CANVAS_HEIGHT', payload: 900 });
+                  }
+                }}
+              >
+                16:9
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const isVertical = state.canvasHeight > state.canvasWidth;
+                  if (isVertical) {
+                    dispatch({ type: 'SET_CANVAS_WIDTH', payload: 900 });
+                    dispatch({ type: 'SET_CANVAS_HEIGHT', payload: 1200 });
+                  } else {
+                    dispatch({ type: 'SET_CANVAS_WIDTH', payload: 1200 });
+                    dispatch({ type: 'SET_CANVAS_HEIGHT', payload: 900 });
+                  }
+                }}
+              >
+                4:3
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const width = state.canvasWidth;
+                  const height = state.canvasHeight;
+                  dispatch({ type: 'SET_CANVAS_WIDTH', payload: height });
+                  dispatch({ type: 'SET_CANVAS_HEIGHT', payload: width });
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="rotate-90">
+                  <path d="M12.5 3V5.5H10M6 10.5H3.5V13" stroke="currentColor" strokeOpacity="0.9" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path fillRule="evenodd" clipRule="evenodd" d="M8 3.5C5.68343 3.5 3.77571 5.25044 3.52735 7.5008C3.49706 7.77528 3.27612 8 3 8C2.72384 8 2.4976 7.7754 2.52237 7.50037C2.7748 4.69694 5.13083 2.5 8 2.5C9.72916 2.5 11.272 3.29799 12.2802 4.54579C12.4539 4.76074 12.3902 5.07317 12.1603 5.22646C11.9306 5.37955 11.6224 5.31549 11.4447 5.10432C10.6192 4.12336 9.38239 3.5 8 3.5ZM3.83967 10.7735C3.60973 10.9268 3.54605 11.2393 3.71973 11.4542C4.72799 12.702 6.27079 13.5 8 13.5C10.8691 13.5 13.2252 11.3031 13.4776 8.49963C13.5024 8.2246 13.2761 8 13 8C12.7238 8 12.5029 8.22472 12.4726 8.4992C12.2242 10.7496 10.3165 12.5 8 12.5C6.61757 12.5 5.38075 11.8766 4.55528 10.8957C4.37758 10.6845 4.06931 10.6204 3.83967 10.7735Z" fill="currentColor" fillOpacity="0.9"/>
+                </svg>
+                <span className="ml-2">Rotate</span>
+              </Button>
+            </div>
+          </div>
+        </SidebarSection>
+
         {/* Selected Color */}
         {selectedColorIndex !== null && (
           <SidebarSection title="Selected Color">
@@ -398,9 +470,20 @@ export default function Home() {
                 className="w-10 h-10 rounded-lg shadow-inner border border-border/50"
                 style={{ backgroundColor: colorStops[selectedColorIndex].color }}
               />
-              <code className="text-sm font-mono">
-                {colorStops[selectedColorIndex].color}
-              </code>
+              <div className="flex-1">
+                <Input
+                  type="text"
+                  value={colorStops[selectedColorIndex].color}
+                  onChange={(e: InputChangeEvent) => {
+                    const value = e.target.value;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                      updateColor(value);
+                    }
+                  }}
+                  className="font-mono text-sm"
+                  placeholder="#000000"
+                />
+              </div>
             </div>
             <div className="mt-4">
               <ColorPicker
@@ -414,7 +497,7 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="flex-1 p-4 md:p-8 ml-[320px]">
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="w-full space-y-8">
           {/* Header */}
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold tracking-tight">Gradient Generator</h1>
@@ -426,11 +509,23 @@ export default function Home() {
 
           {/* Gradient Preview */}
           <div className="space-y-6">
-            <WebGLGradient
-              colorStops={colorStops}
-              gradientStyle={gradientStyle}
-              onColorStopsChange={handleGradientColorStopUpdate}
-            />
+            <div className="flex justify-center w-full">
+              <div 
+                className="relative rounded-lg overflow-hidden shadow-sm"
+                style={{
+                  width: `${state.canvasWidth}px`,
+                  height: `${state.canvasHeight}px`,
+                  maxWidth: '100%',
+                  maxHeight: '80vh'
+                }}
+              >
+                <WebGLGradient
+                  colorStops={colorStops}
+                  gradientStyle={gradientStyle}
+                  onColorStopsChange={handleGradientColorStopUpdate}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

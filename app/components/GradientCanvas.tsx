@@ -75,18 +75,18 @@ export function GradientCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Set fixed canvas size with device pixel ratio
+    // Set canvas size with device pixel ratio
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = CANVAS.WIDTH * dpr;
-    canvas.height = CANVAS.HEIGHT * dpr;
-    canvas.style.width = `${CANVAS.WIDTH}px`;
-    canvas.style.height = `${CANVAS.HEIGHT}px`;
+    canvas.width = state.canvasWidth * dpr;
+    canvas.height = state.canvasHeight * dpr;
+    canvas.style.width = `${state.canvasWidth}px`;
+    canvas.style.height = `${state.canvasHeight}px`;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.scale(dpr, dpr);
     }
-  }, []);
+  }, [state.canvasWidth, state.canvasHeight]);
 
   // Drawing function
   const drawCanvas = useCallback(() => {
@@ -96,16 +96,17 @@ export function GradientCanvas() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { WIDTH, HEIGHT } = CANVAS;
+    const width = state.canvasWidth;
+    const height = state.canvasHeight;
     const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
 
     // Clear with device pixel ratio consideration
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    ctx.clearRect(0, 0, width, height);
 
     // Create and draw gradient
     const gradient = isVertical
-      ? ctx.createLinearGradient(0, 0, 0, HEIGHT)
-      : ctx.createLinearGradient(0, 0, WIDTH, 0);
+      ? ctx.createLinearGradient(0, 0, 0, height)
+      : ctx.createLinearGradient(0, 0, width, 0);
 
     // Add color stops
     colorStops.forEach(stop => {
@@ -114,15 +115,15 @@ export function GradientCanvas() {
 
     // Fill gradient
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, width, height);
 
     // Draw track with rounded corners
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
-    const trackX = isVertical ? WIDTH - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
-    const trackY = isVertical ? TRACK.PADDING : HEIGHT - SIZE.DEFAULT - TRACK.HEIGHT;
-    const trackWidth = isVertical ? TRACK.HEIGHT : WIDTH - TRACK.PADDING * 2;
-    const trackHeight = isVertical ? HEIGHT - TRACK.PADDING * 2 : TRACK.HEIGHT;
+    const trackX = isVertical ? width - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
+    const trackY = isVertical ? TRACK.PADDING : height - SIZE.DEFAULT - TRACK.HEIGHT;
+    const trackWidth = isVertical ? TRACK.HEIGHT : width - TRACK.PADDING * 2;
+    const trackHeight = isVertical ? height - TRACK.PADDING * 2 : TRACK.HEIGHT;
 
     ctx.beginPath();
     ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
@@ -133,11 +134,11 @@ export function GradientCanvas() {
     colorStops.forEach((stop, index) => {
       const position = stop.position;
       const x = isVertical 
-        ? WIDTH - SIZE.DEFAULT - TRACK.HEIGHT / 2 
-        : TRACK.PADDING + position * (WIDTH - TRACK.PADDING * 2);
+        ? width - SIZE.DEFAULT - TRACK.HEIGHT / 2 
+        : TRACK.PADDING + position * (width - TRACK.PADDING * 2);
       const y = isVertical 
-        ? TRACK.PADDING + position * (HEIGHT - TRACK.PADDING * 2)
-        : HEIGHT - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+        ? TRACK.PADDING + position * (height - TRACK.PADDING * 2)
+        : height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
       
       const isSelected = index === state.selectedColorIndex;
       const isHovered = index === hoverIndex;
@@ -151,10 +152,10 @@ export function GradientCanvas() {
         ctx.beginPath();
         if (isVertical) {
           ctx.moveTo(0, y);
-          ctx.lineTo(WIDTH, y);
+          ctx.lineTo(width, y);
         } else {
           ctx.moveTo(x, 0);
-          ctx.lineTo(x, HEIGHT);
+          ctx.lineTo(x, height);
         }
         ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
         ctx.lineWidth = GUIDE_LINE.WIDTH;
@@ -187,7 +188,7 @@ export function GradientCanvas() {
     });
 
     rafRef.current = requestAnimationFrame(drawCanvas);
-  }, [colorStops, isVertical, state.selectedColorIndex, hoverIndex, draggingIndex]);
+  }, [colorStops, isVertical, state.selectedColorIndex, hoverIndex, draggingIndex, state.canvasWidth, state.canvasHeight]);
 
   // Clean up RAF on unmount
   useEffect(() => {
@@ -208,13 +209,14 @@ export function GradientCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
-    const { WIDTH, HEIGHT } = CANVAS;
+    const width = state.canvasWidth;
+    const height = state.canvasHeight;
     const { SIZE, TRACK } = COLOR_STOP;
     
     for (let i = 0; i < colorStops.length; i++) {
       const position = colorStops[i].position;
-      const stopX = isVertical ? TRACK.PADDING + position * (WIDTH - TRACK.PADDING * 2) : TRACK.PADDING;
-      const stopY = isVertical ? TRACK.PADDING + position * (HEIGHT - TRACK.PADDING * 2) : TRACK.PADDING;
+      const stopX = isVertical ? TRACK.PADDING + position * (width - TRACK.PADDING * 2) : TRACK.PADDING;
+      const stopY = isVertical ? TRACK.PADDING + position * (height - TRACK.PADDING * 2) : TRACK.PADDING;
       
       const distance = Math.sqrt(
         Math.pow(x - stopX, 2) + Math.pow(y - stopY, 2)
@@ -225,7 +227,7 @@ export function GradientCanvas() {
       }
     }
     return null;
-  }, [colorStops, isVertical]);
+  }, [colorStops, isVertical, state.canvasWidth, state.canvasHeight]);
 
   // Event handlers
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -255,12 +257,13 @@ export function GradientCanvas() {
     const y = e.clientY - rect.top;
 
     if (draggingIndex !== null) {
-      const { WIDTH, HEIGHT } = CANVAS;
+      const width = state.canvasWidth;
+      const height = state.canvasHeight;
       const { TRACK } = COLOR_STOP;
 
       const newPosition = isVertical
-        ? Math.max(0, Math.min(1, (y - TRACK.PADDING) / (HEIGHT - TRACK.PADDING * 2)))
-        : Math.max(0, Math.min(1, (x - TRACK.PADDING) / (WIDTH - TRACK.PADDING * 2)));
+        ? Math.max(0, Math.min(1, (y - TRACK.PADDING) / (height - TRACK.PADDING * 2)))
+        : Math.max(0, Math.min(1, (x - TRACK.PADDING) / (width - TRACK.PADDING * 2)));
       
       dispatch({
         type: 'UPDATE_COLOR_STOP',
@@ -273,7 +276,7 @@ export function GradientCanvas() {
       const stopIndex = getColorStopAtPosition(x, y);
       setHoverIndex(stopIndex);
     }
-  }, [draggingIndex, isVertical, dispatch, colorStops, getColorStopAtPosition]);
+  }, [draggingIndex, isVertical, dispatch, colorStops, getColorStopAtPosition, state.canvasWidth, state.canvasHeight]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
