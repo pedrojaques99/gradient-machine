@@ -1,9 +1,10 @@
-export type ColorStop = {
+export interface ColorStop {
+  id: string;
   color: string;
   position: number;
-};
+}
 
-export type GradientStyle = 'linear' | 'bezier' | 'sharp' | 'clean';
+export type GradientStyle = 'linear' | 'radial' | 'conic' | 'diagonal' | 'fluid' | 'soft';
 
 export const rgbToHex = (r: number, g: number, b: number): string => {
   return '#' + [r, g, b].map(x => {
@@ -78,12 +79,10 @@ export const generateGradient = (colorStops: ColorStop[], style: GradientStyle =
     .join(', ');
 
   switch (style) {
-    case 'bezier':
+    case 'linear':
       return `linear-gradient(to right, ${stops})`;
-    case 'sharp':
-      return `linear-gradient(to right, ${stops})`;
-    case 'clean':
-      return `linear-gradient(to right, ${stops})`;
+    case 'radial':
+      return `radial-gradient(circle, ${stops})`;
     default:
       return `linear-gradient(to right, ${stops})`;
   }

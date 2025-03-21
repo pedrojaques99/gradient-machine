@@ -1,53 +1,234 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ColorStop, GradientStyle } from '../utils/colors';
+import { useEffect, useRef, useState, useCallback, memo } from 'react';
+import { Button } from './ui/button';
+import { RotateCw } from 'lucide-react';
+import { useColorStops, useGradient, useGradientError } from '../contexts/GradientContext';
+import { CANVAS, COLOR_STOP } from '../lib/constants';
+import { cn } from '../lib/utils';
+import { ColorStop } from '../lib/utils/colors';
 
-interface GradientCanvasProps {
-  colorStops: ColorStop[];
-  style: GradientStyle;
-  onColorStopUpdate: (index: number, position: number) => void;
-}
+// Orientation toggle button component
+const OrientationButton = memo(({ isVertical, onToggle }: { 
+  isVertical: boolean; 
+  onToggle: () => void;
+}) => (
+  <Button
+    variant="outline"
+    size="icon"
+    onClick={onToggle}
+    className="self-end hover:bg-primary/5"
+    title={`Switch to ${isVertical ? 'horizontal' : 'vertical'} orientation`}
+  >
+    <RotateCw 
+      className={cn(
+        "h-4 w-4 transition-transform duration-200 ease-out",
+        isVertical && "rotate-90"
+      )}
+      aria-hidden="true"
+    />
+    <span className="sr-only">
+      Switch to {isVertical ? 'horizontal' : 'vertical'} orientation
+    </span>
+  </Button>
+));
+OrientationButton.displayName = 'OrientationButton';
 
-export function GradientCanvas({ colorStops, style, onColorStopUpdate }: GradientCanvasProps) {
+// Canvas drawing utilities
+const drawGradient = (ctx: CanvasRenderingContext2D, width: number, height: number, colorStops: ColorStop[], isVertical: boolean) => {
+  const gradient = ctx.createLinearGradient(
+    0, 0,
+    isVertical ? 0 : width,
+    isVertical ? height : 0
+  );
+  colorStops.forEach(stop => gradient.addColorStop(stop.position, stop.color));
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+};
+
+const drawTrack = (ctx: CanvasRenderingContext2D, width: number, height: number, isVertical: boolean) => {
+  const { TRACK } = COLOR_STOP;
+  const trackY = isVertical ? TRACK.PADDING : height - COLOR_STOP.SIZE.DEFAULT - TRACK.HEIGHT;
+  const trackX = isVertical ? width - COLOR_STOP.SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
+
+  ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
+  if (isVertical) {
+    ctx.roundRect(trackX, TRACK.PADDING, TRACK.HEIGHT, height - TRACK.PADDING * 2, TRACK.HEIGHT / 2);
+  } else {
+    ctx.roundRect(TRACK.PADDING, trackY, width - TRACK.PADDING * 2, TRACK.HEIGHT, TRACK.HEIGHT / 2);
+  }
+  ctx.fill();
+};
+
+export function GradientCanvas() {
+  const colorStops = useColorStops();
+  const { state, dispatch } = useGradient();
+  const { setError } = useGradientError();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [isVertical, setIsVertical] = useState(false);
+  const rafRef = useRef<number | undefined>(undefined);
 
+  // Initialize canvas size once
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Set fixed canvas size with device pixel ratio
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = CANVAS.WIDTH * dpr;
+    canvas.height = CANVAS.HEIGHT * dpr;
+    canvas.style.width = `${CANVAS.WIDTH}px`;
+    canvas.style.height = `${CANVAS.HEIGHT}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+    }
+  }, []);
+
+  // Drawing function
+  const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    const { WIDTH, HEIGHT } = CANVAS;
+    const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
 
-    // Create gradient
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    // Clear with device pixel ratio consideration
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    // Create and draw gradient
+    const gradient = isVertical
+      ? ctx.createLinearGradient(0, 0, 0, HEIGHT)
+      : ctx.createLinearGradient(0, 0, WIDTH, 0);
+
+    // Add color stops
     colorStops.forEach(stop => {
       gradient.addColorStop(stop.position, stop.color);
     });
 
-    // Draw gradient
+    // Fill gradient
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // Draw track with rounded corners
+    ctx.save();
+    ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
+    const trackX = isVertical ? WIDTH - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
+    const trackY = isVertical ? TRACK.PADDING : HEIGHT - SIZE.DEFAULT - TRACK.HEIGHT;
+    const trackWidth = isVertical ? TRACK.HEIGHT : WIDTH - TRACK.PADDING * 2;
+    const trackHeight = isVertical ? HEIGHT - TRACK.PADDING * 2 : TRACK.HEIGHT;
+
+    ctx.beginPath();
+    ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
+    ctx.fill();
+    ctx.restore();
 
     // Draw color stops
     colorStops.forEach((stop, index) => {
-      const x = stop.position * canvas.width;
+      const position = stop.position;
+      const x = isVertical 
+        ? WIDTH - SIZE.DEFAULT - TRACK.HEIGHT / 2 
+        : TRACK.PADDING + position * (WIDTH - TRACK.PADDING * 2);
+      const y = isVertical 
+        ? TRACK.PADDING + position * (HEIGHT - TRACK.PADDING * 2)
+        : HEIGHT - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+      
+      const isSelected = index === state.selectedColorIndex;
+      const isHovered = index === hoverIndex;
+      const isDragging = index === draggingIndex;
+      const scale = isDragging ? SIZE.ACTIVE / SIZE.DEFAULT : 
+                   isHovered ? SIZE.HOVER / SIZE.DEFAULT : 1;
+
+      // Draw guide line for selected stop
+      if (isSelected) {
+        ctx.save();
+        ctx.beginPath();
+        if (isVertical) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(WIDTH, y);
+        } else {
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, HEIGHT);
+        }
+        ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
+        ctx.lineWidth = GUIDE_LINE.WIDTH;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Draw stop handle with shadow
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      
+      // Shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+
+      // Stop circle
       ctx.beginPath();
-      ctx.arc(x, canvas.height / 2, 8, 0, Math.PI * 2);
+      ctx.arc(0, 0, SIZE.DEFAULT / 2, 0, Math.PI * 2);
       ctx.fillStyle = stop.color;
       ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    });
-  }, [colorStops, style]);
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Border
+      ctx.strokeStyle = isSelected || isHovered ? 'hsl(var(--primary))' : 'white';
+      ctx.lineWidth = isSelected || isDragging ? BORDER.HOVER_WIDTH : BORDER.WIDTH;
+      ctx.stroke();
+
+      ctx.restore();
+    });
+
+    rafRef.current = requestAnimationFrame(drawCanvas);
+  }, [colorStops, isVertical, state.selectedColorIndex, hoverIndex, draggingIndex]);
+
+  // Clean up RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  // Draw on color stops or orientation change
+  useEffect(() => {
+    drawCanvas();
+  }, [drawCanvas]);
+
+  // Optimized position calculation
+  const getColorStopAtPosition = useCallback((x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const { WIDTH, HEIGHT } = CANVAS;
+    const { SIZE, TRACK } = COLOR_STOP;
+    
+    for (let i = 0; i < colorStops.length; i++) {
+      const position = colorStops[i].position;
+      const stopX = isVertical ? TRACK.PADDING + position * (WIDTH - TRACK.PADDING * 2) : TRACK.PADDING;
+      const stopY = isVertical ? TRACK.PADDING + position * (HEIGHT - TRACK.PADDING * 2) : TRACK.PADDING;
+      
+      const distance = Math.sqrt(
+        Math.pow(x - stopX, 2) + Math.pow(y - stopY, 2)
+      );
+
+      if (distance < SIZE.DEFAULT) {
+        return i;
+      }
+    }
+    return null;
+  }, [colorStops, isVertical]);
+
+  // Event handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -55,42 +236,75 @@ export function GradientCanvas({ colorStops, style, onColorStopUpdate }: Gradien
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Check if click is near a color stop
-    colorStops.forEach((stop, index) => {
-      const stopX = stop.position * canvas.width;
-      const distance = Math.sqrt(
-        Math.pow(x - stopX, 2) + Math.pow(y - canvas.height / 2, 2)
-      );
+    const stopIndex = getColorStopAtPosition(x, y);
+    if (stopIndex !== null) {
+      setDraggingIndex(stopIndex);
+      dispatch({ type: 'SET_SELECTED_COLOR', payload: stopIndex });
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      dispatch({ type: 'SET_SELECTED_COLOR', payload: null });
+    }
+  }, [getColorStopAtPosition, dispatch]);
 
-      if (distance < 8) {
-        setDraggingIndex(index);
-      }
-    });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (draggingIndex === null) return;
-
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / canvas.width));
-    onColorStopUpdate(draggingIndex, x);
-  };
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  const handleMouseUp = () => {
+    if (draggingIndex !== null) {
+      const { WIDTH, HEIGHT } = CANVAS;
+      const { TRACK } = COLOR_STOP;
+
+      const newPosition = isVertical
+        ? Math.max(0, Math.min(1, (y - TRACK.PADDING) / (HEIGHT - TRACK.PADDING * 2)))
+        : Math.max(0, Math.min(1, (x - TRACK.PADDING) / (WIDTH - TRACK.PADDING * 2)));
+      
+      dispatch({
+        type: 'UPDATE_COLOR_STOP',
+        payload: {
+          index: draggingIndex,
+          stop: { ...colorStops[draggingIndex], position: newPosition }
+        }
+      });
+    } else {
+      const stopIndex = getColorStopAtPosition(x, y);
+      setHoverIndex(stopIndex);
+    }
+  }, [draggingIndex, isVertical, dispatch, colorStops, getColorStopAtPosition]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (canvas && draggingIndex !== null) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
     setDraggingIndex(null);
-  };
+  }, [draggingIndex]);
+
+  const toggleOrientation = useCallback(() => {
+    setIsVertical(prev => !prev);
+  }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-32 rounded-lg cursor-pointer"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    />
+    <div className="flex flex-col gap-4">
+      <canvas
+        ref={canvasRef}
+        className={cn(
+          "w-full rounded-lg shadow-sm touch-none select-none",
+          "transition-shadow duration-200",
+          "hover:shadow-md",
+          draggingIndex !== null && "cursor-grabbing",
+          hoverIndex !== null && "cursor-grab"
+        )}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      />
+      <OrientationButton isVertical={isVertical} onToggle={toggleOrientation} />
+    </div>
   );
-} 
+}
