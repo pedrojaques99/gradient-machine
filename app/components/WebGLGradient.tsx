@@ -49,11 +49,12 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     ctx.clearRect(0, 0, width, height);
 
     // Create gradient based on style
-    let gradient: CanvasGradient;
+    let gradient: CanvasGradient | undefined;
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = Math.min(width, height) / 2;
     
+    // First, draw the base gradient or effects
     switch (gradientStyle as GradientStyle) {
       case 'linear':
         gradient = ctx.createLinearGradient(0, 0, width, 0);
@@ -72,48 +73,50 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         colorStops.forEach((stop, index) => {
-          const x = stop.position * width;
-          const y = height / 2 + Math.sin(index * Math.PI / 2) * (height / 4);
-          const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 0.8);
+          const x = (stop.x ?? stop.position) * width;
+          const y = (stop.y ?? 0.5) * height;
+          const gradientRadius = radius * (state.handleSize / 16) * 0.8;
+          const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
           fluidGradient.addColorStop(0, stop.color);
           fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
           ctx.fillStyle = fluidGradient;
           ctx.beginPath();
-          ctx.arc(x, y, radius * 0.8, 0, Math.PI * 2);
+          ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.restore();
-        return;
+        break;
       case 'soft':
         // Create a soft, blurred effect using multiple overlapping radial gradients
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         colorStops.forEach((stop, index) => {
-          const x = stop.position * width;
-          const y = height / 2;
-          const softGradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 1.2);
+          const x = (stop.x ?? stop.position) * width;
+          const y = (stop.y ?? 0.5) * height;
+          const gradientRadius = radius * (state.handleSize / 16) * 1.2;
+          const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
           softGradient.addColorStop(0, stop.color);
           softGradient.addColorStop(0.5, `${stop.color}80`);
           softGradient.addColorStop(1, 'rgba(0,0,0,0)');
           ctx.fillStyle = softGradient;
           ctx.beginPath();
-          ctx.arc(x, y, radius * 1.2, 0, Math.PI * 2);
+          ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.restore();
-        return;
+        break;
     }
 
-    // Add color stops to gradient
-    colorStops.forEach(stop => {
-      gradient.addColorStop(stop.position, stop.color);
-    });
+    // Add color stops to gradient for non-fluid/soft styles
+    if (gradient && gradientStyle !== 'fluid' && gradientStyle !== 'soft') {
+      colorStops.forEach(stop => {
+        gradient.addColorStop(stop.position, stop.color);
+      });
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
 
-    // Fill gradient
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw color stop handles
+    // Draw color stop handles on top of everything
     colorStops.forEach((stop, index) => {
       let x, y;
       switch (gradientStyle as GradientStyle) {
@@ -135,21 +138,29 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
           y = stop.position * height;
           break;
         case 'fluid':
-        case 'soft': {
-          // Calculate position based on both x and y
-          const verticalOffset = (stop.position - Math.floor(stop.position)) * height;
-          x = (Math.floor(stop.position) * width) % width;
-          y = height / 2 + verticalOffset;
+          x = (stop.x ?? stop.position) * width;
+          y = (stop.y ?? 0.5) * height;
           break;
-        }
+        case 'soft':
+          x = (stop.x ?? stop.position) * width;
+          y = (stop.y ?? 0.5) * height;
+          break;
       }
 
-      // Draw handle with hover and active states
+      // Draw handle with enhanced visibility
       const isHovered = index === hoverIndex;
       const isActive = index === draggingIndex;
-      const size = isActive ? 18 : isHovered ? 15 : 12;
+      const baseSize = state.handleSize;
+      const size = isActive ? baseSize * 1.5 : isHovered ? baseSize * 1.25 : baseSize;
 
       ctx.save();
+      // Draw white background circle
+      ctx.beginPath();
+      ctx.arc(x, y, size / 2 + 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      
+      // Draw main handle
       ctx.beginPath();
       ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
       ctx.shadowBlur = 8;
@@ -164,7 +175,7 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     });
 
     rafRef.current = requestAnimationFrame(render);
-  }, [colorStops, gradientStyle, hoverIndex, draggingIndex]);
+  }, [colorStops, gradientStyle, hoverIndex, draggingIndex, state.handleSize]);
 
   // Start/cleanup render loop
   useEffect(() => {
@@ -191,13 +202,8 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
       case 'diagonal':
         return (x + y) / 2;
       case 'fluid':
-      case 'soft': {
-        // For fluid and soft styles, we'll use both x and y coordinates
-        // x determines the horizontal position (0-1)
-        // y determines the vertical offset from center (-0.5 to 0.5)
-        const verticalOffset = (y - 0.5) * 2; // Convert 0-1 to -1 to 1
-        return x + verticalOffset * 0.1; // Add a small vertical influence to the position
-      }
+      case 'soft':
+        return { x, y };
       default:
         return x;
     }
@@ -212,21 +218,30 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     const y = (e.clientY - rect.top) / rect.height;
 
     if (isDragging && draggingIndex !== null) {
-      const newPosition = Math.max(0, Math.min(1, calculatePosition(x, y)));
-
+      const newPosition = calculatePosition(x, y);
       const newStops = [...colorStops];
-      newStops[draggingIndex] = {
-        ...newStops[draggingIndex],
-        position: newPosition
-      };
 
-      newStops.sort((a, b) => a.position - b.position);
+      if (gradientStyle === 'fluid' || gradientStyle === 'soft') {
+        // For fluid and soft styles, store x and y positions
+        newStops[draggingIndex] = {
+          ...newStops[draggingIndex],
+          x: Math.max(0, Math.min(1, x)),
+          y: Math.max(0, Math.min(1, y))
+        };
+      } else {
+        // For other styles, use the position as before
+        newStops[draggingIndex] = {
+          ...newStops[draggingIndex],
+          position: Math.max(0, Math.min(1, newPosition as number))
+        };
+      }
+
       onColorStopsChange(newStops);
     } else {
-      const hoveredIndex = findClosestColorStop(calculatePosition(x, y), colorStops);
+      const hoveredIndex = findClosestColorStop(calculatePosition(x, y), colorStops, gradientStyle);
       setHoverIndex(hoveredIndex);
     }
-  }, [isDragging, draggingIndex, colorStops, onColorStopsChange, calculatePosition]);
+  }, [isDragging, draggingIndex, colorStops, onColorStopsChange, calculatePosition, gradientStyle]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -236,14 +251,14 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
-    const clickedIndex = findClosestColorStop(calculatePosition(x, y), colorStops);
+    const clickedIndex = findClosestColorStop(calculatePosition(x, y), colorStops, gradientStyle);
 
     if (clickedIndex !== null) {
       setDraggingIndex(clickedIndex);
       setIsDragging(true);
       canvas.setPointerCapture(e.pointerId);
     }
-  }, [colorStops, calculatePosition]);
+  }, [colorStops, calculatePosition, gradientStyle]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -279,17 +294,27 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
   );
 }
 
-function findClosestColorStop(x: number, colorStops: ColorStop[]): number | null {
+function findClosestColorStop(pos: number | { x: number; y: number }, colorStops: ColorStop[], gradientStyle: GradientStyle): number | null {
   let closestIndex = 0;
   let minDistance = Infinity;
 
   colorStops.forEach((stop, index) => {
-    const distance = Math.abs(stop.position - x);
+    let distance;
+    if (gradientStyle === 'fluid' || gradientStyle === 'soft') {
+      const x = stop.x ?? stop.position;
+      const y = stop.y ?? 0.5;
+      const posX = (pos as { x: number; y: number }).x;
+      const posY = (pos as { x: number; y: number }).y;
+      distance = Math.sqrt(Math.pow(x - posX, 2) + Math.pow(y - posY, 2));
+    } else {
+      distance = Math.abs(stop.position - (pos as number));
+    }
+    
     if (distance < minDistance) {
       minDistance = distance;
       closestIndex = index;
     }
   });
 
-  return minDistance < 0.05 ? closestIndex : null;
+  return minDistance < 0.08 ? closestIndex : null;
 } 

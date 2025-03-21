@@ -18,6 +18,11 @@ interface GradientState {
   colorFormat: 'hex' | 'rgb' | 'hsl';
   isProcessing: boolean;
   error: string | null;
+  handleSize: number;
+  gradientSize: number;  // 0-100%
+  grainIntensity: number;  // 0-100%
+  warpIntensity: number;  // 0-100%
+  halftoneIntensity: number;  // 0-100%
 }
 
 type GradientAction =
@@ -30,18 +35,28 @@ type GradientAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'ADD_COLOR_STOP'; payload: ColorStop }
   | { type: 'REMOVE_COLOR_STOP'; payload: number }
-  | { type: 'REORDER_COLOR_STOPS'; payload: ColorStop[] };
+  | { type: 'REORDER_COLOR_STOPS'; payload: ColorStop[] }
+  | { type: 'SET_HANDLE_SIZE'; payload: number }
+  | { type: 'SET_GRADIENT_SIZE'; payload: number }
+  | { type: 'SET_GRAIN_INTENSITY'; payload: number }
+  | { type: 'SET_WARP_INTENSITY'; payload: number }
+  | { type: 'SET_HALFTONE_INTENSITY'; payload: number };
 
 const initialState: GradientState = {
   colorStops: [
-    { id: uuidv4(), color: '#ff0000', position: 0 },
-    { id: uuidv4(), color: '#00ff00', position: 1 }
+    { id: uuidv4(), color: '#7961D3', position: 0 },
+    { id: uuidv4(), color: '#FF6B6B', position: 1 }
   ],
   style: 'linear',
   selectedColorIndex: null,
   colorFormat: 'hex',
   isProcessing: false,
-  error: null
+  error: null,
+  handleSize: 16,
+  gradientSize: 100,
+  grainIntensity: 0,
+  warpIntensity: 0,
+  halftoneIntensity: 0
 };
 
 function gradientReducer(state: GradientState, action: GradientAction): GradientState {
@@ -78,6 +93,16 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
       };
     case 'REORDER_COLOR_STOPS':
       return { ...state, colorStops: action.payload };
+    case 'SET_HANDLE_SIZE':
+      return { ...state, handleSize: action.payload };
+    case 'SET_GRADIENT_SIZE':
+      return { ...state, gradientSize: action.payload };
+    case 'SET_GRAIN_INTENSITY':
+      return { ...state, grainIntensity: action.payload };
+    case 'SET_WARP_INTENSITY':
+      return { ...state, warpIntensity: action.payload };
+    case 'SET_HALFTONE_INTENSITY':
+      return { ...state, halftoneIntensity: action.payload };
     default:
       return state;
   }

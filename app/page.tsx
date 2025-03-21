@@ -318,6 +318,25 @@ export default function Home() {
           </div>
         </SidebarSection>
 
+        {/* Handle Size Controls */}
+        <SidebarSection title="Handle Size">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="handle-size">Size</Label>
+              <span className="text-sm text-muted-foreground">{state.handleSize}px</span>
+            </div>
+            <Slider
+              id="handle-size"
+              min={8}
+              max={32}
+              step={2}
+              value={[state.handleSize]}
+              onValueChange={(value) => dispatch({ type: 'SET_HANDLE_SIZE', payload: value[0] })}
+              className="w-full"
+            />
+          </div>
+        </SidebarSection>
+
         {/* Selected Color */}
         {selectedColorIndex !== null && (
           <SidebarSection title="Selected Color">

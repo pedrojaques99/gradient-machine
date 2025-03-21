@@ -2,6 +2,8 @@ export interface ColorStop {
   id: string;
   color: string;
   position: number;
+  x?: number;
+  y?: number;
 }
 
 export type GradientStyle = 'linear' | 'radial' | 'conic' | 'diagonal' | 'fluid' | 'soft';
