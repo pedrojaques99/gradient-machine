@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/app/lib/utils';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -42,8 +41,8 @@ export function Sidebar({ className, children, ...props }: SidebarProps) {
   }, [isResizing]);
 
   return (
-    <>
-      <div
+    <div className="relative flex h-full">
+      <aside
         ref={sidebarRef}
         className={cn(
           "bg-card border-r border-border/50 overflow-y-auto",
@@ -57,18 +56,16 @@ export function Sidebar({ className, children, ...props }: SidebarProps) {
             <h3 className="text-sm font-medium text-muted-foreground">Controls</h3>
           </div>
         </div>
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="flex flex-col gap-2">
-            {children}
-          </div>
-        </ScrollArea>
-      </div>
+        <div className="flex flex-col gap-2">
+          {children}
+        </div>
+      </aside>
       <div
         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/10 transition-colors"
         onMouseDown={() => setIsResizing(true)}
         style={{ transform: 'translateX(50%)' }}
       />
-    </>
+    </div>
   );
 }
 

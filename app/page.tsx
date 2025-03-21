@@ -496,7 +496,7 @@ export default function Home() {
       </Sidebar>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 md:p-8 ml-[320px]">
+      <div className="flex-1 p-4 md:p-6">
         <div className="w-full space-y-8">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -509,13 +509,13 @@ export default function Home() {
 
           {/* Gradient Preview */}
           <div className="space-y-6">
-            <div className="flex justify-center w-full">
+            <div className="flex justify-start w-full">
               <div 
                 className="relative rounded-lg overflow-hidden shadow-sm"
                 style={{
                   width: `${state.canvasWidth}px`,
                   height: `${state.canvasHeight}px`,
-                  maxWidth: '100%',
+                  maxWidth: 'calc(100vw - 380px)',
                   maxHeight: '80vh'
                 }}
               >
