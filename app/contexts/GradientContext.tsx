@@ -19,10 +19,9 @@ interface GradientState {
   isProcessing: boolean;
   error: string | null;
   handleSize: number;
-  gradientSize: number;  // 0-100%
-  grainIntensity: number;  // 0-100%
-  warpIntensity: number;  // 0-100%
-  halftoneIntensity: number;  // 0-100%
+  gradientSize: number;
+  gitterIntensity: number;
+  halftoneEnabled: boolean;
 }
 
 type GradientAction =
@@ -38,9 +37,8 @@ type GradientAction =
   | { type: 'REORDER_COLOR_STOPS'; payload: ColorStop[] }
   | { type: 'SET_HANDLE_SIZE'; payload: number }
   | { type: 'SET_GRADIENT_SIZE'; payload: number }
-  | { type: 'SET_GRAIN_INTENSITY'; payload: number }
-  | { type: 'SET_WARP_INTENSITY'; payload: number }
-  | { type: 'SET_HALFTONE_INTENSITY'; payload: number };
+  | { type: 'SET_GITTER_INTENSITY'; payload: number }
+  | { type: 'SET_HALFTONE_MODE'; payload: boolean };
 
 const initialState: GradientState = {
   colorStops: [
@@ -54,9 +52,8 @@ const initialState: GradientState = {
   error: null,
   handleSize: 16,
   gradientSize: 100,
-  grainIntensity: 0,
-  warpIntensity: 0,
-  halftoneIntensity: 0
+  gitterIntensity: 0,
+  halftoneEnabled: false
 };
 
 function gradientReducer(state: GradientState, action: GradientAction): GradientState {
@@ -97,12 +94,10 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
       return { ...state, handleSize: action.payload };
     case 'SET_GRADIENT_SIZE':
       return { ...state, gradientSize: action.payload };
-    case 'SET_GRAIN_INTENSITY':
-      return { ...state, grainIntensity: action.payload };
-    case 'SET_WARP_INTENSITY':
-      return { ...state, warpIntensity: action.payload };
-    case 'SET_HALFTONE_INTENSITY':
-      return { ...state, halftoneIntensity: action.payload };
+    case 'SET_GITTER_INTENSITY':
+      return { ...state, gitterIntensity: action.payload };
+    case 'SET_HALFTONE_MODE':
+      return { ...state, halftoneEnabled: action.payload };
     default:
       return state;
   }

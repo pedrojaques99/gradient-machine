@@ -22,6 +22,7 @@ import { ColorStopList } from './components/ColorStopList';
 import { useGradient, useColorStops } from './contexts/GradientContext';
 import { Toaster } from './components/ui/toaster';
 import { v4 as uuidv4 } from 'uuid';
+import { Switch } from '@/app/components/ui/switch';
 
 export default function Home() {
   const [image, setImage] = useState<string | null>(null);
@@ -334,6 +335,58 @@ export default function Home() {
               onValueChange={(value) => dispatch({ type: 'SET_HANDLE_SIZE', payload: value[0] })}
               className="w-full"
             />
+          </div>
+        </SidebarSection>
+
+        {/* Gradient Size Controls */}
+        <SidebarSection title="Gradient Size">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="gradient-size">Size</Label>
+              <span className="text-sm text-muted-foreground">{state.gradientSize}%</span>
+            </div>
+            <Slider
+              id="gradient-size"
+              min={50}
+              max={200}
+              step={10}
+              value={[state.gradientSize]}
+              onValueChange={(value) => dispatch({ type: 'SET_GRADIENT_SIZE', payload: value[0] })}
+              className="w-full"
+            />
+          </div>
+        </SidebarSection>
+
+        {/* Gitter Texture Controls */}
+        <SidebarSection title="Gitter Texture">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="gitter-intensity">Intensity</Label>
+              <span className="text-sm text-muted-foreground">{state.gitterIntensity}%</span>
+            </div>
+            <Slider
+              id="gitter-intensity"
+              min={0}
+              max={100}
+              step={5}
+              value={[state.gitterIntensity]}
+              onValueChange={(value) => dispatch({ type: 'SET_GITTER_INTENSITY', payload: value[0] })}
+              className="w-full"
+            />
+          </div>
+        </SidebarSection>
+
+        {/* Halftone Mode Controls */}
+        <SidebarSection title="Halftone Mode">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="halftone-mode">Enabled</Label>
+              <Switch
+                id="halftone-mode"
+                checked={state.halftoneEnabled}
+                onCheckedChange={(checked) => dispatch({ type: 'SET_HALFTONE_MODE', payload: checked })}
+              />
+            </div>
           </div>
         </SidebarSection>
 

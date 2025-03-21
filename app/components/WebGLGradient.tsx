@@ -52,7 +52,7 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     let gradient: CanvasGradient | undefined;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) / 2;
+    const radius = Math.min(width, height) / 2 * (state.gradientSize / 100); // Scale with gradient size
     
     // First, draw the base gradient or effects
     switch (gradientStyle as GradientStyle) {
@@ -116,6 +116,46 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
       ctx.fillRect(0, 0, width, height);
     }
 
+    // Draw gitter texture if enabled
+    if (state.gitterIntensity > 0) {
+      ctx.save();
+      ctx.globalAlpha = state.gitterIntensity / 100;
+      ctx.globalCompositeOperation = 'overlay';
+      
+      // Create gitter pattern
+      const patternSize = 4;
+      const pattern = ctx.createPattern(
+        createGitterPattern(ctx, patternSize),
+        'repeat'
+      );
+      
+      if (pattern) {
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, width, height);
+      }
+      ctx.restore();
+    }
+
+    // Draw halftone effect if enabled
+    if (state.halftoneEnabled) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'overlay';
+      
+      // Create halftone pattern
+      const dotSize = 4;
+      const spacing = 8;
+      const pattern = ctx.createPattern(
+        createHalftonePattern(ctx, dotSize, spacing),
+        'repeat'
+      );
+      
+      if (pattern) {
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, width, height);
+      }
+      ctx.restore();
+    }
+
     // Draw color stop handles on top of everything
     colorStops.forEach((stop, index) => {
       let x, y;
@@ -175,7 +215,7 @@ export function WebGLGradient({ colorStops, gradientStyle, onColorStopsChange }:
     });
 
     rafRef.current = requestAnimationFrame(render);
-  }, [colorStops, gradientStyle, hoverIndex, draggingIndex, state.handleSize]);
+  }, [colorStops, gradientStyle, hoverIndex, draggingIndex, state.handleSize, state.gradientSize, state.gitterIntensity, state.halftoneEnabled]);
 
   // Start/cleanup render loop
   useEffect(() => {
@@ -317,4 +357,37 @@ function findClosestColorStop(pos: number | { x: number; y: number }, colorStops
   });
 
   return minDistance < 0.08 ? closestIndex : null;
+}
+
+function createGitterPattern(ctx: CanvasRenderingContext2D, size: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const patternCtx = canvas.getContext('2d');
+  
+  if (patternCtx) {
+    patternCtx.fillStyle = '#000';
+    patternCtx.fillRect(0, 0, size, size);
+    patternCtx.fillStyle = '#fff';
+    patternCtx.fillRect(0, 0, size/2, size/2);
+    patternCtx.fillRect(size/2, size/2, size/2, size/2);
+  }
+  
+  return canvas;
+}
+
+function createHalftonePattern(ctx: CanvasRenderingContext2D, dotSize: number, spacing: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = spacing;
+  canvas.height = spacing;
+  const patternCtx = canvas.getContext('2d');
+  
+  if (patternCtx) {
+    patternCtx.fillStyle = '#000';
+    patternCtx.beginPath();
+    patternCtx.arc(spacing/2, spacing/2, dotSize/2, 0, Math.PI * 2);
+    patternCtx.fill();
+  }
+  
+  return canvas;
 } 
