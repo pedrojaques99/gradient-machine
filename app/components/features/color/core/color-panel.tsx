@@ -1,53 +1,37 @@
-"use client";
-import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
+'use client';
 
-type ClassValue =
-  | ClassArray
-  | ClassDictionary
-  | string
-  | number
-  | bigint
-  | null
-  | boolean
-  | undefined;
-type ClassDictionary = Record<string, any>;
-type ClassArray = ClassValue[];
-function clsx(...inputs: ClassValue[]): string {
-  return inputs.filter(Boolean).join(" ");
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import styles from './color-panel.module.css';
+
+// Types
+export interface ColorPanelProps {
+  colors?: string[];
+  selectedColor?: string | null;
+  defaultColor?: string;
+  onColorSelect?: (color: string) => void;
+  onColorChange?: (color: string) => void;
+  showPreview?: boolean;
+  showColorPicker?: boolean;
+  showColorList?: boolean;
+  isPopover?: boolean;
+  onClose?: () => void;
 }
 
-type hsl = {
+type HSL = {
   h: number;
   s: number;
   l: number;
 };
 
-type hex = {
+type HEX = {
   hex: string;
 };
-type Color = hsl & hex;
 
-const HashtagIcon = React.memo((props: React.ComponentPropsWithoutRef<"svg">) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      {...props}
-    >
-      <path
-        fillRule="evenodd"
-        d="M11.097 1.515a.75.75 0 0 1 .589.882L10.666 7.5h4.47l1.079-5.397a.75.75 0 1 1 1.47.294L16.665 7.5h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.2 6h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103h-4.47l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103H3.75a.75.75 0 0 1 0-1.5h3.885l1.2-6H5.25a.75.75 0 0 1 0-1.5h3.885l1.08-5.397a.75.75 0 0 1 .882-.588ZM10.365 9l-1.2 6h4.47l1.2-6h-4.47Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-});
+type Color = HSL & HEX;
 
-HashtagIcon.displayName = 'HashtagIcon';
-
-// Regular functions instead of hooks
-function hslToHex({ h, s, l }: hsl): string {
+// Utility functions
+function hslToHex({ h, s, l }: HSL): string {
   s /= 100;
   l /= 100;
 
@@ -67,7 +51,7 @@ function hslToHex({ h, s, l }: hsl): string {
   return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
 }
 
-function hexToHsl({ hex }: hex): hsl {
+function hexToHsl({ hex }: HEX): HSL {
   hex = hex.replace(/^#/, "");
   if (hex.length === 3) {
     hex = hex.split("").map((char) => char + char).join("");
@@ -112,12 +96,37 @@ function hexToHsl({ hex }: hex): hsl {
   return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
 
+function sanitizeHex(val: string): string {
+  const sanitized = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return sanitized.length > 6 ? sanitized.slice(0, 6) : sanitized;
+}
+
+// Components
+const HashtagIcon = React.memo((props: React.ComponentPropsWithoutRef<"svg">) => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <path
+        fillRule="evenodd"
+        d="M11.097 1.515a.75.75 0 0 1 .589.882L10.666 7.5h4.47l1.079-5.397a.75.75 0 1 1 1.47.294L16.665 7.5h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.2 6h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103h-4.47l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103H3.75a.75.75 0 0 1 0-1.5h3.885l1.2-6H5.25a.75.75 0 0 1 0-1.5h3.885l1.08-5.397a.75.75 0 0 1 .882-.588ZM10.365 9l-1.2 6h4.47l1.2-6h-4.47Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+});
+
+HashtagIcon.displayName = 'HashtagIcon';
+
 const DraggableColorCanvas = React.memo(({
   h,
   s,
   l,
   handleChange,
-}: hsl & {
+}: HSL & {
   handleChange: (e: Partial<Color>) => void;
 }) => {
   const [dragging, setDragging] = useState(false);
@@ -208,7 +217,7 @@ const DraggableColorCanvas = React.memo(({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      <div
+      <motion.div
         className="color-selector border-4 border-white ring-1 ring-zinc-200 dark:border-zinc-900 dark:ring-zinc-700"
         style={{
           position: "absolute",
@@ -216,11 +225,16 @@ const DraggableColorCanvas = React.memo(({
           height: "20px",
           borderRadius: "50%",
           background: `hsl(${h}, ${s}%, ${l}%)`,
-          transform: "translate(-50%, -50%)",
+          transform: "tranzinc(-50%, -50%)",
           left: `${s}%`,
           top: `${100 - l}%`,
           cursor: dragging ? "grabbing" : "grab",
         }}
+        animate={{
+          scale: dragging ? 1.2 : 1,
+          boxShadow: dragging ? "0 0 0 2px rgba(var(--primary), 0.5)" : "none",
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
       />
     </div>
   );
@@ -228,40 +242,58 @@ const DraggableColorCanvas = React.memo(({
 
 DraggableColorCanvas.displayName = 'DraggableColorCanvas';
 
-function sanitizeHex(val: string): string {
-  const sanitized = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  return sanitized.length > 6 ? sanitized.slice(0, 6) : sanitized;
-}
-
-const ColorPicker = React.memo(({ 
-  default_value = "#1C9488",
-  onChange
-}: { 
-  default_value?: string;
-  onChange?: (color: string) => void;
-}) => {
+export function ColorPanel({
+  colors = [],
+  selectedColor = null,
+  defaultColor = "#1C9488",
+  onColorSelect,
+  onColorChange,
+  showPreview = true,
+  showColorPicker = true,
+  showColorList = true,
+  isPopover = false,
+  onClose,
+}: ColorPanelProps) {
   const [color, setColor] = useState<Color>(() => ({
-    ...hexToHsl({ hex: default_value }),
-    hex: default_value
+    ...hexToHsl({ hex: defaultColor }),
+    hex: defaultColor
   }));
+
+  const [hexInput, setHexInput] = useState(defaultColor.replace("#", ""));
+
+  useEffect(() => {
+    const newColor = {
+      ...hexToHsl({ hex: defaultColor }),
+      hex: defaultColor
+    };
+    setColor(newColor);
+    setHexInput(defaultColor.replace("#", ""));
+  }, [defaultColor]);
 
   const handleChange = useCallback((newColor: Partial<Color>) => {
     const updatedColor = { ...color, ...newColor };
     setColor(updatedColor);
     
-    if (onChange) {
+    if (onColorChange) {
       const hexColor = `#${hslToHex(updatedColor)}`;
-      onChange(hexColor);
+      onColorChange(hexColor);
+      setHexInput(hexColor.replace("#", ""));
     }
-  }, [color, onChange]);
+  }, [color, onColorChange]);
 
   const handleHexChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const sanitized = sanitizeHex(value);
+    setHexInput(sanitized);
+
     if (sanitized.length === 6) {
       const hexColor = `#${sanitized}`;
-      const hslColor = hexToHsl({ hex: hexColor });
-      handleChange({ ...hslColor, hex: hexColor });
+      try {
+        const hslColor = hexToHsl({ hex: hexColor });
+        handleChange({ ...hslColor, hex: hexColor });
+      } catch (error) {
+        console.warn('Invalid hex color:', hexColor);
+      }
     }
   }, [handleChange]);
 
@@ -270,37 +302,86 @@ const ColorPicker = React.memo(({
     handleChange({ h: newHue });
   }, [handleChange]);
 
+  const hueGradient = useMemo(() => {
+    const stops = [];
+    for (let i = 0; i <= 360; i += 60) {
+      stops.push(`hsl(${i}, 100%, 50%)`);
+    }
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, []);
+
   return (
-    <div className="space-y-4">
-      <DraggableColorCanvas
-        h={color.h}
-        s={color.s}
-        l={color.l}
-        handleChange={handleChange}
-      />
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <HashtagIcon className="h-4 w-4 text-zinc-500" />
-          <input
-            type="text"
-            className="w-full rounded-md border border-zinc-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:focus:border-zinc-500"
-            value={color.hex.replace("#", "")}
-            onChange={handleHexChange}
+    <div className="space-y-6">
+      {showColorPicker && (
+        <div className="space-y-4">
+          <DraggableColorCanvas
+            h={color.h}
+            s={color.s}
+            l={color.l}
+            handleChange={handleChange}
           />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <HashtagIcon className="h-4 w-4 text-zinc-500" />
+              <input
+                type="text"
+                className="w-full rounded-md border border-zinc-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:focus:border-zinc-500"
+                value={hexInput}
+                onChange={handleHexChange}
+                maxLength={6}
+                placeholder="000000"
+              />
+            </div>
+            <div className="relative">
+              <input
+                type="range"
+                min="0"
+                max="360"
+                value={color.h}
+                onChange={handleHueChange}
+                className={`${styles['color-hue-slider']} h-2 w-full cursor-pointer appearance-none rounded-lg`}
+                style={{
+                  background: hueGradient
+                }}
+              />
+              <div 
+                className="absolute top-1/2 -tranzinc-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-sm pointer-events-none"
+                style={{
+                  left: `${(color.h / 360) * 100}%`,
+                  backgroundColor: `hsl(${color.h}, 100%, 50%)`,
+                  transform: 'tranzinc(-50%, -50%)'
+                }}
+              />
+            </div>
+          </div>
         </div>
-        <input
-          type="range"
-          min="0"
-          max="360"
-          value={color.h}
-          onChange={handleHueChange}
-          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gradient-to-r from-red-500 via-yellow-500 to-red-500"
-        />
-      </div>
+      )}
+
+      {showColorList && colors.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          {colors.map((color, index) => (
+            <motion.button
+              key={color + index}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.1 }}
+              className={`aspect-square rounded-lg overflow-hidden ring-2 ring-offset-2 ring-offset-background ${
+                selectedColor === color ? 'ring-primary' : 'ring-transparent'
+              }`}
+              style={{ backgroundColor: color }}
+              onClick={() => onColorSelect?.(color)}
+            />
+          ))}
+        </div>
+      )}
+
+      {showPreview && (
+        <div className="p-4 rounded-lg" style={{ backgroundColor: `#${hslToHex(color)}` }}>
+          <div className="text-center text-sm">
+            Current Color: #{hslToHex(color)}
+          </div>
+        </div>
+      )}
     </div>
   );
-});
-
-ColorPicker.displayName = 'ColorPicker';
-
-export default ColorPicker;
+} 

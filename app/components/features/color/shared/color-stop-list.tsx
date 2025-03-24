@@ -2,9 +2,9 @@
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button } from './ui/button';
-import ColorPicker from './ColorPicker';
-import { ColorStop } from '../lib/utils/colors';
+import { Button } from '@/app/components/ui/button';
+import { ColorPicker } from './color-picker';
+import { ColorStop } from '@/app/lib/utils/colors';
 import { useCallback, useState, useEffect, memo } from 'react';
 
 interface ColorStopItemProps {
@@ -41,7 +41,7 @@ const ColorStopItem = memo(function ColorStopItem({
   });
 
   const style = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform ? `tranzinc3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     transition,
     zIndex: isDragging ? 50 : 0,
     opacity: isDragging ? 0.8 : 1,
@@ -124,11 +124,11 @@ const ColorStopItem = memo(function ColorStopItem({
               className={`
                 h-8 w-8 opacity-0 group-hover:opacity-100
                 transition-all duration-200
-                hover:bg-black/[2.5%] dark:hover:bg-white/[2.5%]
+                hover:bg-zinc/[2.5%] dark:hover:bg-white/[2.5%]
                 hover:text-zinc-700 dark:hover:text-zinc-200
                 ${isDragging ? 'pointer-events-none' : ''}
               `}
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 handleRemove();
               }}
@@ -152,7 +152,7 @@ const ColorStopItem = memo(function ColorStopItem({
       {isSelected && !isDragging && (
         <div className="pl-6">
           <ColorPicker 
-            default_value={stop.color} 
+            color={stop.color} 
             onChange={handleColorChange}
           />
         </div>

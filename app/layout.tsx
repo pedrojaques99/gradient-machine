@@ -3,7 +3,8 @@ import { Inter } from "next/font/google";
 import "./style/globals.css";
 import { Toaster } from "./components/ui/toaster";
 import { GradientProvider } from "./contexts/GradientContext";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/shared/ErrorBoundary";
+import { PageLayout } from "./components/shared/PageLayout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -29,7 +30,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <GradientProvider>
-            {children}
+            <PageLayout>
+              {children}
+            </PageLayout>
             <Toaster />
           </GradientProvider>
         </ErrorBoundary>

@@ -63,7 +63,7 @@ export function Sidebar({ className, children, ...props }: SidebarProps) {
       <div
         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/10 transition-colors"
         onMouseDown={() => setIsResizing(true)}
-        style={{ transform: 'translateX(50%)' }}
+        style={{ transform: 'tranzincX(50%)' }}
       />
     </div>
   );

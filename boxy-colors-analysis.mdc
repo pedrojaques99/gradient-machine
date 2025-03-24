@@ -1,0 +1,106 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+ # Boxy Colors Analysis
+
+## Application Overview
+A Tailwind CSS Color Generator tool for creating and visualizing color scales for web applications.
+
+## Core Features
+1. Color Generation
+   - Primary color picker
+   - Hex code input
+   - Automatic color scale generation (50-950)
+   - Real-time color updates
+
+2. UI Components
+   - Contrast grid
+   - Export functionality
+   - Edit capabilities
+   - Save functionality
+
+3. Live Preview
+   - UI examples showing real components
+   - Expense tracking card
+   - Metrics card
+   - Categories card
+
+## Technical Stack
+- HTML5
+- Tailwind CSS (via CDN)
+- Culori.js for color manipulation
+- Vanilla JavaScript
+
+## File Structure
+```
+boxy-colors/
+├── index.html
+├── README.md
+├── js/
+│   └── app.js
+└── css/
+    └── styles.css
+```
+
+## Key Dependencies
+- tailwindcss.com (CDN)
+- culori/dist/culori.min.js
+
+## User Journey
+1. Initial Visit
+   - Default color: #15d4f4
+   - Immediate display of color scale and UI examples
+
+2. Color Selection
+   - Color picker interface
+   - Manual hex code input
+   - Spacebar for random colors
+   - HSL/OKLCH value adjustments
+
+3. Color Scale Generation
+   - Automatic scale generation (50-950)
+   - Display of:
+     - Scale numbers
+     - Hex codes
+     - Visual swatches
+
+4. Preview & Testing
+   - Real UI component previews
+   - Live updates
+   - Multiple example views
+
+5. Export & Save
+   - Palette export
+   - Save functionality
+   - Edit capabilities
+   - Contrast grid view
+
+6. Integration
+   - Tailwind CSS compatibility
+   - Ready-to-use color scales
+
+## Integration Guidelines
+- Compatible with Tailwind CSS projects
+- Can be used for:
+  - Design systems
+  - UI/UX development
+  - Theme creation
+  - Accessibility testing
+  - Color palette management
+
+## Default Configuration
+```javascript
+{
+  defaultColor: '#15d4f4',
+  scaleSteps: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950],
+  isDarkMode: true
+}
+```
+
+## Notes
+- Uses modern color manipulation with Culori.js
+- Real-time preview capabilities
+- Focus on Tailwind CSS compatibility
+- Built with vanilla JavaScript for simplicity
