@@ -407,7 +407,26 @@ export function ColorDiscovery() {
   }, [dispatch, state.designSystem]);
 
   return (
-    <div className="min-h-screen flex bg-zinc-950 flex-col">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Full Screen Gradient Background */}
+      <div className="fixed inset-0 -z-10 group">
+        <div 
+          className="absolute inset-0 animate-gradient bg-gradient-to-r from-accent/5 via-zinc-900/40 to-accent/5 blur-2xl group-hover:blur-xl transition-all duration-500" 
+        />
+        <div 
+          className="absolute inset-0 animate-gradient-delayed bg-gradient-to-r from-zinc-900/30 via-accent/5 to-zinc-900/30 blur-2xl group-hover:blur-xl transition-all duration-500"
+        />
+        <div 
+          className="absolute inset-0 animate-gradient-more-delayed bg-gradient-to-r from-accent/5 via-zinc-900/40 to-accent/5 blur-2xl group-hover:blur-xl transition-all duration-500"
+        />
+        
+        {/* Accent Color Highlights */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+          <div className="absolute top-1/3 left-1/3 w-24 h-24 rounded-full bg-accent/5 blur-2xl" />
+          <div className="absolute bottom-1/3 right-1/3 w-24 h-24 rounded-full bg-accent/5 blur-2xl" />
+        </div>
+      </div>
+
       <Navigation title="[Colorfy]®" onNext={handleInterfaceChange} />
       
       <div className="flex-1 flex flex-col">
@@ -431,7 +450,7 @@ export function ColorDiscovery() {
               animate={{ opacity: 1, y: 0 }}
             >
               <div className="flex flex-col items-center gap-6">
-                <div className="relative w-[160px] h-[160px] bg-zinc-900/50 rounded-md overflow-hidden group">
+                <div className="relative w-[160px] h-[160px] bg-zinc-900/30 rounded-md overflow-hidden group backdrop-blur-sm border border-white/5">
                   {/* Image Preview */}
                   {imagePreview ? (
                     <>

@@ -151,6 +151,71 @@
   background: rgb(107, 114, 128);
 }
 
+/* Gradient Animations */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+    transform: scale(1);
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: scale(1.01);
+  }
+  100% {
+    background-position: 0% 50%;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 20s ease infinite;
+  transition: all 0.5s ease;
+}
+
+.animate-gradient:hover {
+  animation: pulse 4s ease infinite;
+}
+
+.animate-gradient-delayed {
+  background-size: 200% 200%;
+  animation: gradient 20s ease infinite;
+  animation-delay: -7s;
+  transition: all 0.5s ease;
+}
+
+.animate-gradient-delayed:hover {
+  animation: pulse 4s ease infinite;
+  animation-delay: -1.3s;
+}
+
+.animate-gradient-more-delayed {
+  background-size: 200% 200%;
+  animation: gradient 20s ease infinite;
+  animation-delay: -14s;
+  transition: all 0.5s ease;
+}
+
+.animate-gradient-more-delayed:hover {
+  animation: pulse 4s ease infinite;
+  animation-delay: -2.6s;
+}
+
 /* Smooth transitions */
 * {
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;

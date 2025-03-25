@@ -29,7 +29,7 @@ export function PageLayout({ children }: { children: React.ReactNode }) {
   }, [dispatch]);
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen">
       <ColorSidebar
         colors={state.colorStops.map(stop => stop.color)}
         selectedColor={state.selectedColor}
