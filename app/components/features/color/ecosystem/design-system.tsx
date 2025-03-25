@@ -30,15 +30,6 @@ const data = [
 function PreviewPanel() {
   const { state, dispatch } = useGradient();
 
-  const createGradientFromDesignSystem = () => {
-    const newStops = [
-      { id: 'primary', color: state.designSystem.primary, position: 0 },
-      { id: 'secondary', color: state.designSystem.secondary, position: 0.5 },
-      { id: 'accent', color: state.designSystem.accent, position: 1 }
-    ];
-    dispatch({ type: 'SET_COLOR_STOPS', payload: newStops });
-  };
-
   return (
     <div className="space-y-4">
       {/* Buttons Preview */}
@@ -49,63 +40,74 @@ function PreviewPanel() {
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
+              {/* Primary Button */}
               <button
-                className="flex-1 py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden"
+                className="flex-1 py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden shadow-sm"
                 style={{
                   backgroundColor: state.designSystem.primary,
-                  color: state.designSystem.text
+                  color: state.designSystem.text,
+                  boxShadow: `0 4px 12px ${state.designSystem.primary}25`
                 }}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    backgroundColor: state.designSystem.text,
-                    mixBlendMode: 'overlay'
+                    background: `linear-gradient(45deg, ${state.designSystem.primary}, ${state.designSystem.accent}90)`
                   }}
                 />
                 <span className="relative z-10">Primary</span>
               </button>
+              
+              {/* Secondary Button */}
               <button
-                className="flex-1 py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden"
+                className="flex-1 py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden shadow-sm"
                 style={{
                   backgroundColor: state.designSystem.secondary,
-                  color: state.designSystem.text
+                  color: state.designSystem.text,
+                  boxShadow: `0 4px 12px ${state.designSystem.secondary}25`
                 }}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    backgroundColor: state.designSystem.text,
-                    mixBlendMode: 'overlay'
+                    background: `linear-gradient(45deg, ${state.designSystem.secondary}, ${state.designSystem.primary}90)`
                   }}
                 />
                 <span className="relative z-10">Secondary</span>
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              {/* Accent Button */}
               <button
-                className="w-full py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden"
+                className="w-full py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden shadow-sm"
                 style={{
                   backgroundColor: state.designSystem.accent,
-                  color: state.designSystem.text
+                  color: state.designSystem.text,
+                  boxShadow: `0 4px 12px ${state.designSystem.accent}25`
                 }}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    backgroundColor: state.designSystem.text,
-                    mixBlendMode: 'overlay'
+                    background: `linear-gradient(45deg, ${state.designSystem.accent}, ${state.designSystem.primary}90)`
                   }}
                 />
                 <span className="relative z-10">Accent</span>
               </button>
+              
+              {/* Outline Button */}
               <button
                 className="w-full py-2 px-4 rounded-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] relative group overflow-hidden border-2"
                 style={{
                   borderColor: state.designSystem.accent,
                   color: state.designSystem.accent,
+                  backgroundColor: state.designSystem.background
                 }}
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    backgroundColor: state.designSystem.accent,
+                    background: `linear-gradient(45deg, ${state.designSystem.accent}90, ${state.designSystem.primary}70)`
                   }}
                 />
                 <span className="relative z-10 group-hover:text-white transition-colors">Outline</span>
@@ -142,13 +144,12 @@ function PreviewPanel() {
                   tickMargin={8}
                 />
                 <Tooltip 
-                  cursor={{ fill: 'transparent' }}
+                  cursor={{ fill: state.designSystem.secondary + '10' }}
                   contentStyle={{ 
                     backgroundColor: state.designSystem.background,
                     border: `1px solid ${state.designSystem.secondary}20`,
                     borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                    padding: '8px 12px',
+                    boxShadow: `0 4px 12px ${state.designSystem.primary}15`
                   }}
                   labelStyle={{ 
                     color: state.designSystem.text,
@@ -163,7 +164,6 @@ function PreviewPanel() {
                 />
                 <Bar 
                   dataKey="value" 
-                  fill={state.designSystem.primary}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                 >
@@ -173,21 +173,21 @@ function PreviewPanel() {
                       fill={index === data.length - 1 ? state.designSystem.accent : state.designSystem.primary}
                       opacity={index === data.length - 1 ? 1 : 0.7}
                       style={{
+                        filter: `drop-shadow(0 2px 4px ${state.designSystem.primary}25)`,
                         transition: 'all 0.3s ease',
                         cursor: 'pointer',
-                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
                       }}
                       onMouseEnter={(e) => {
                         const target = e.target as SVGElement;
                         target.style.opacity = '1';
                         target.style.transform = 'translateY(-2px)';
-                        target.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))';
+                        target.style.filter = `drop-shadow(0 4px 8px ${state.designSystem.primary}40)`;
                       }}
                       onMouseLeave={(e) => {
                         const target = e.target as SVGElement;
                         target.style.opacity = index === data.length - 1 ? '1' : '0.7';
                         target.style.transform = 'translateY(0)';
-                        target.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))';
+                        target.style.filter = `drop-shadow(0 2px 4px ${state.designSystem.primary}25)`;
                       }}
                     />
                   ))}
@@ -197,11 +197,24 @@ function PreviewPanel() {
           </div>
           <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: state.designSystem.primary, opacity: 0.7 }} />
+              <div 
+                className="w-3 h-3 rounded-sm shadow-sm" 
+                style={{ 
+                  backgroundColor: state.designSystem.primary,
+                  opacity: 0.7,
+                  boxShadow: `0 2px 4px ${state.designSystem.primary}25`
+                }} 
+              />
               <span>Regular</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: state.designSystem.accent }} />
+              <div 
+                className="w-3 h-3 rounded-sm shadow-sm" 
+                style={{ 
+                  backgroundColor: state.designSystem.accent,
+                  boxShadow: `0 2px 4px ${state.designSystem.accent}25`
+                }} 
+              />
               <span>Peak</span>
             </div>
           </div>
@@ -228,32 +241,37 @@ function BrandElements() {
             className="flex items-center gap-4 p-4 rounded-lg border backdrop-blur-sm transition-all duration-300 group hover:shadow-lg" 
             style={{ 
               backgroundColor: state.designSystem.background,
-              borderColor: state.designSystem.secondary 
+              borderColor: `${state.designSystem.secondary}30`,
+              boxShadow: `0 4px 12px ${state.designSystem.primary}10`
             }}
           >
             <motion.div 
               whileHover={{ rotate: 10 }}
               className="w-12 h-12 rounded-lg flex items-center justify-center shadow-lg transition-shadow duration-300 group-hover:shadow-xl" 
               style={{ 
-                backgroundColor: state.designSystem.primary,
-                boxShadow: `0 0 20px ${state.designSystem.primary}30`
+                background: `linear-gradient(135deg, ${state.designSystem.primary}, ${state.designSystem.accent})`,
+                boxShadow: `0 8px 24px ${state.designSystem.primary}30`
               }}
             >
-              <span className="text-xl font-bold transition-transform duration-300 group-hover:scale-110" style={{ color: state.designSystem.text }}>B</span>
+              <span className="text-xl font-bold transition-transform duration-300 group-hover:scale-110" 
+                style={{ color: state.designSystem.text }}>
+                B
+              </span>
             </motion.div>
             <div className="flex-1 space-y-2">
               <motion.div 
                 className="h-4 w-24 rounded-full transition-all duration-300 group-hover:w-32" 
                 style={{ 
-                  backgroundColor: state.designSystem.primary,
-                  boxShadow: `0 2px 8px ${state.designSystem.primary}30`
+                  background: `linear-gradient(to right, ${state.designSystem.primary}, ${state.designSystem.accent})`,
+                  boxShadow: `0 2px 8px ${state.designSystem.primary}20`
                 }} 
               />
               <motion.div 
                 className="h-3 w-16 rounded-full transition-all duration-300 group-hover:w-20" 
                 style={{ 
                   backgroundColor: state.designSystem.secondary,
-                  boxShadow: `0 2px 8px ${state.designSystem.secondary}30`
+                  opacity: 0.8,
+                  boxShadow: `0 2px 8px ${state.designSystem.secondary}20`
                 }} 
               />
             </div>
@@ -270,10 +288,15 @@ function BrandElements() {
             <motion.div 
               className="absolute inset-0 transition-all duration-500 group-hover:scale-110" 
               style={{ 
-                background: `linear-gradient(45deg, ${state.designSystem.primary}, ${state.designSystem.secondary}, ${state.designSystem.accent})`
+                background: `linear-gradient(45deg, 
+                  ${state.designSystem.primary}, 
+                  ${state.designSystem.secondary}, 
+                  ${state.designSystem.accent}
+                )`,
+                opacity: 0.9
               }}
             />
-            <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px] transition-all duration-300 group-hover:backdrop-blur-0" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-[1px] transition-all duration-300 group-hover:backdrop-blur-0" />
             <motion.div 
               initial={false}
               className="absolute bottom-4 left-4 flex items-center gap-4"
@@ -282,9 +305,9 @@ function BrandElements() {
                 whileHover={{ rotate: 10 }}
                 className="w-16 h-16 rounded-full border-4 shadow-lg transition-all duration-300 group-hover:shadow-2xl" 
                 style={{ 
-                  backgroundColor: state.designSystem.background,
-                  borderColor: state.designSystem.accent,
-                  boxShadow: `0 0 20px ${state.designSystem.accent}40`
+                  background: `linear-gradient(135deg, ${state.designSystem.primary}, ${state.designSystem.accent})`,
+                  borderColor: state.designSystem.background,
+                  boxShadow: `0 8px 24px ${state.designSystem.accent}40`
                 }} 
               />
               <div className="space-y-2">
@@ -292,7 +315,7 @@ function BrandElements() {
                   className="h-4 w-32 rounded-full transition-all duration-300 group-hover:w-36" 
                   style={{ 
                     backgroundColor: state.designSystem.background,
-                    boxShadow: `0 2px 8px rgba(0,0,0,0.2)`
+                    boxShadow: `0 2px 8px ${state.designSystem.primary}30`
                   }} 
                 />
                 <motion.div 
@@ -300,7 +323,7 @@ function BrandElements() {
                   style={{ 
                     backgroundColor: state.designSystem.background,
                     opacity: 0.8,
-                    boxShadow: `0 2px 8px rgba(0,0,0,0.1)`
+                    boxShadow: `0 2px 8px ${state.designSystem.primary}20`
                   }} 
                 />
               </div>

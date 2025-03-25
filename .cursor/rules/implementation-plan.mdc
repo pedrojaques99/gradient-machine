@@ -1,1 +1,331 @@
- 
+# Implementation Plan
+
+## 1. Interface 1 - Color Discovery
+
+### 1.1 Upload Zone Component
+```typescript
+interface UploadZoneProps {
+  onImageUpload: (image: File) => void;
+  onColorExtract: (colors: string[]) => void;
+}
+
+// Implementation
+const UploadZone: React.FC<UploadZoneProps> = () => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Drag & Drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  
+  // File processing
+  const processImage = async (file: File) => {
+    setIsLoading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx?.drawImage(img, 0, 0);
+        
+        // Extract colors using getImageData
+        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+        const colors = extractColors(imageData);
+        
+        setPreview(URL.createObjectURL(file));
+        onColorExtract(colors);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  return (
+    <motion.div
+      className="upload-zone"
+      animate={isDragging ? { scale: 1.02 } : { scale: 1 }}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+    >
+      {/* Upload UI */}
+    </motion.div>
+  );
+};
+```
+
+### 1.2 Color Preview Component
+```typescript
+interface ColorPreviewProps {
+  colors: string[];
+  onSelect: (color: string) => void;
+}
+
+const ColorPreview: React.FC<ColorPreviewProps> = ({ colors, onSelect }) => {
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  
+  return (
+    <motion.div 
+      className="color-grid"
+      layout
+    >
+      {colors.map((color, index) => (
+        <motion.div
+          key={index}
+          className="color-swatch"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setSelectedColor(color);
+            onSelect(color);
+          }}
+        >
+          <div 
+            className="swatch-color"
+            style={{ backgroundColor: color }}
+          />
+          <div className="swatch-info">
+            <span>{color}</span>
+            <span>{getContrastRatio(color)}</span>
+          </div>
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+};
+```
+
+## 2. Interface 2 - Color Ecosystem
+
+### 2.1 Color Control Hub
+```typescript
+interface ColorControlHubProps {
+  initialColor: string;
+  onColorChange: (color: string) => void;
+  onScaleGenerate: (scale: ColorScale) => void;
+}
+
+const ColorControlHub: React.FC<ColorControlHubProps> = ({
+  initialColor,
+  onColorChange,
+  onScaleGenerate
+}) => {
+  const [color, setColor] = useState(initialColor);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Color validation
+  const validateColor = (input: string) => {
+    const isValid = /^#[0-9A-Fa-f]{6}$/.test(input);
+    setError(isValid ? null : 'Invalid hex color');
+    return isValid;
+  };
+  
+  // Scale generation
+  const generateScale = useCallback(() => {
+    const scale = generateColorScale(color);
+    onScaleGenerate(scale);
+  }, [color]);
+  
+  return (
+    <div className="color-control">
+      <ColorInput
+        value={color}
+        onChange={handleColorChange}
+        error={error}
+      />
+      <ColorScale
+        scale={generateScale()}
+        onScaleChange={onScaleGenerate}
+      />
+    </div>
+  );
+};
+```
+
+### 2.2 Design System Preview
+```typescript
+interface DesignSystemPreviewProps {
+  colorScale: ColorScale;
+  onComponentSelect: (component: string) => void;
+}
+
+const DesignSystemPreview: React.FC<DesignSystemPreviewProps> = ({
+  colorScale,
+  onComponentSelect
+}) => {
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+  
+  return (
+    <div className="design-system-preview">
+      <ComponentGrid>
+        <ButtonPreview colorScale={colorScale} />
+        <CardPreview colorScale={colorScale} />
+        <FormPreview colorScale={colorScale} />
+        <NavigationPreview colorScale={colorScale} />
+      </ComponentGrid>
+      
+      <ComponentControls
+        selected={selectedComponent}
+        onSelect={setSelectedComponent}
+      />
+    </div>
+  );
+};
+```
+
+### 2.3 Gradient Studio
+```typescript
+interface GradientStudioProps {
+  colorScale: ColorScale;
+  onGradientChange: (gradient: Gradient) => void;
+}
+
+const GradientStudio: React.FC<GradientStudioProps> = ({
+  colorScale,
+  onGradientChange
+}) => {
+  // Adapt existing WebGLGradient
+  const gradientRef = useRef<WebGLGradient>(null);
+  
+  return (
+    <div className="gradient-studio">
+      <WebGLGradient
+        ref={gradientRef}
+        colorStops={colorScale}
+        onColorStopsChange={onGradientChange}
+      />
+      
+      <GradientControls
+        onStyleChange={handleStyleChange}
+        onTextureChange={handleTextureChange}
+      />
+      
+      <ColorStopTrack
+        colorStops={colorScale}
+        onStopsChange={handleStopsChange}
+      />
+    </div>
+  );
+};
+```
+
+### 2.4 Export Suite
+```typescript
+interface ExportSuiteProps {
+  colorScale: ColorScale;
+  gradient: Gradient;
+  onSave: (data: ExportData) => void;
+  onExport: (format: ExportFormat) => void;
+}
+
+const ExportSuite: React.FC<ExportSuiteProps> = ({
+  colorScale,
+  gradient,
+  onSave,
+  onExport
+}) => {
+  const [format, setFormat] = useState<ExportFormat>('json');
+  
+  const handleExport = () => {
+    const data = {
+      colorScale,
+      gradient,
+      timestamp: new Date().toISOString()
+    };
+    
+    switch (format) {
+      case 'json':
+        onExport(JSON.stringify(data, null, 2));
+        break;
+      case 'css':
+        onExport(generateCSSVariables(data));
+        break;
+      case 'svg':
+        onExport(generateSVGGradient(data));
+        break;
+    }
+  };
+  
+  return (
+    <div className="export-suite">
+      <FormatSelector
+        value={format}
+        onChange={setFormat}
+      />
+      
+      <PreviewPanel
+        data={data}
+        format={format}
+      />
+      
+      <ActionButtons
+        onExport={handleExport}
+        onSave={() => onSave(data)}
+      />
+    </div>
+  );
+};
+```
+
+## State Management
+```typescript
+interface AppStore {
+  // Interface 1
+  extractedColors: string[];
+  selectedColor: string | null;
+  
+  // Interface 2
+  colorScale: ColorScale;
+  gradientStyle: GradientStyle;
+  textureSettings: TextureSettings;
+  
+  // Actions
+  setExtractedColors: (colors: string[]) => void;
+  selectColor: (color: string) => void;
+  updateColorScale: (scale: ColorScale) => void;
+  updateGradient: (gradient: Gradient) => void;
+}
+
+const useStore = create<AppStore>((set) => ({
+  // State
+  extractedColors: [],
+  selectedColor: null,
+  colorScale: [],
+  gradientStyle: 'linear',
+  textureSettings: {
+    grain: 0,
+    halftone: false
+  },
+  
+  // Actions
+  setExtractedColors: (colors) => set({ extractedColors: colors }),
+  selectColor: (color) => set({ selectedColor: color }),
+  updateColorScale: (scale) => set({ colorScale: scale }),
+  updateGradient: (gradient) => set({ gradient })
+}));
+```
+
+## Animation Transitions
+```typescript
+const pageTransition = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 }
+};
+
+const AnimatedPage: React.FC = ({ children }) => (
+  <motion.div
+    variants={pageTransition}
+    initial="initial"
+    animate="animate"
+    exit="exit"
+  >
+    {children}
+  </motion.div>
+);
+``` 

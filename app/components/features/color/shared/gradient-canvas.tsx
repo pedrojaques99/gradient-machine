@@ -40,7 +40,7 @@ interface GradientCanvasProps {
   showOrientationToggle?: boolean;
   gradientStyle?: GradientStyle;
   onColorStopsChange?: (stops: ColorStop[]) => void;
-  backgroundColor?: 'zinc' | 'white';
+  backgroundColor?: string;
   gradientSize?: number;
 }
 

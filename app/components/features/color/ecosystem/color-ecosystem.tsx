@@ -5,7 +5,6 @@ import { useGradient } from '@/app/contexts/GradientContext';
 import { DesignSystem } from './design-system';
 import { Navigation } from '@/app/components/shared/Navigation';
 import { useState } from 'react';
-import { Button } from '@/app/components/ui/button';
 
 export function ColorEcosystem() {
   const { state, dispatch } = useGradient();
@@ -37,14 +36,6 @@ export function ColorEcosystem() {
         className="flex-1 p-6 space-y-6"
       >
         <DesignSystem />
-        <div className="w-full">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Gradient Studio</h2>
-            <Button onClick={handleOpenStudio} variant="outline">
-              Open Studio
-            </Button>
-          </div>
-        </div>
       </motion.div>
     </div>
   );

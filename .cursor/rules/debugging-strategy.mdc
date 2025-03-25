@@ -1,0 +1,165 @@
+# Debugging Strategy Rules
+
+## Core Principles
+- Systematic approach to debugging
+- Clear escalation path
+- Focus on root cause analysis
+- Efficient use of AI tools
+- Prevention of error loops
+
+## Error Resolution Protocol
+
+### Step 1: Initial Assessment
+1. If Cursor Agent enters an error loop:
+   - Close current chat session
+   - Open new chat session
+   - Document the error state
+
+### Step 2: Codebase Analysis
+1. Complete codebase scan:
+   ```bash
+   # Use o1/o3-mini for initial scan
+   o1-mini scan
+   
+   # Use Gemini flash 2.0 for deep analysis
+   gemini-flash scan --context 2M
+   ```
+
+2. Document findings:
+   - List affected files
+   - Note error patterns
+   - Identify potential root causes
+
+### Step 3: Error Resolution Process
+
+#### Phase 1: Chain of Thought Analysis
+1. Document the error:
+   ```
+   Error: [Attach error message]
+   Location: [File and line number]
+   Context: [Brief description]
+   ```
+
+2. Follow chain of thought reasoning:
+   - Identify immediate symptoms
+   - Trace error propagation
+   - Locate root cause
+   - Plan resolution steps
+
+3. If unresolved, proceed to Phase 2
+
+#### Phase 2: Best Practices Research
+1. Search for similar issues:
+   - Check official documentation
+   - Review GitHub issues
+   - Consult Stack Overflow
+   - Review relevant blog posts
+
+2. Apply best practices:
+   - Implement recommended solutions
+   - Follow community guidelines
+   - Adhere to framework conventions
+
+### Step 4: File Management
+1. Only attach relevant files:
+   - Error location
+   - Dependencies
+   - Configuration files
+   - Related components
+
+2. File organization:
+   ```
+   /relevant-files
+   ├── error-source.ts
+   ├── dependencies.ts
+   ├── config.ts
+   └── related-components/
+   ```
+
+## Debugging Tools
+
+### 1. Code Analysis
+- o1/o3-mini: Quick code scanning
+- Gemini flash 2.0: Deep context analysis
+- TypeScript compiler: Type checking
+- ESLint: Code quality
+
+### 2. Performance Tools
+- React DevTools
+- Chrome DevTools
+- Performance Profiler
+- Memory Leak Detector
+
+### 3. Testing Tools
+- Jest
+- React Testing Library
+- Cypress
+- Playwright
+
+## Error Prevention
+
+### 1. Code Quality
+- Use TypeScript strictly
+- Implement proper error boundaries
+- Add comprehensive logging
+- Write unit tests
+
+### 2. Development Practices
+- Regular code reviews
+- Automated testing
+- Continuous integration
+- Code documentation
+
+### 3. Monitoring
+- Error tracking
+- Performance monitoring
+- User analytics
+- System health checks
+
+## Documentation Requirements
+
+### 1. Error Logging
+```typescript
+interface ErrorLog {
+  timestamp: string;
+  error: string;
+  stack: string;
+  context: {
+    file: string;
+    line: number;
+    component?: string;
+  };
+  resolution?: string;
+}
+```
+
+### 2. Resolution Steps
+```markdown
+1. Error Identification
+   - [ ] Error message
+   - [ ] Stack trace
+   - [ ] Context
+
+2. Analysis
+   - [ ] Root cause
+   - [ ] Affected components
+   - [ ] Dependencies
+
+3. Solution
+   - [ ] Implementation
+   - [ ] Testing
+   - [ ] Documentation
+```
+
+## Escalation Path
+1. Local debugging
+2. Team review
+3. External resources
+4. Expert consultation
+
+## Success Criteria
+1. Error resolved
+2. Tests passing
+3. No regression
+4. Documentation updated
+5. Prevention measures in place 

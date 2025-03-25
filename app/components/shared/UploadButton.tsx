@@ -5,26 +5,28 @@ import { Loader2, Image, Upload, X } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface UploadButtonProps {
+export interface UploadButtonProps {
   onUpload: (file: File) => void;
-  isLoading?: boolean;
   hasImage?: boolean;
-  variant?: 'default' | 'sidebar';
+  isLoading?: boolean;
   title?: string;
-  collapsed?: boolean;
-  maxSize?: number; // in MB
   imagePreview?: string;
+  variant?: 'default' | 'sidebar';
+  collapsed?: boolean;
+  className?: string;
+  id?: string;
 }
 
-export function UploadButton({ 
-  onUpload, 
-  isLoading, 
-  hasImage, 
-  variant = 'default', 
-  title,
+export function UploadButton({
+  onUpload,
+  hasImage = false,
+  isLoading = false,
+  title = 'Upload',
+  imagePreview,
+  variant = 'default',
   collapsed = false,
-  maxSize = 5, // default 5MB
-  imagePreview
+  className,
+  id
 }: UploadButtonProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +38,8 @@ export function UploadButton({
       return;
     }
 
-    if (file.size > maxSize * 1024 * 1024) {
-      setError(`File size must be less than ${maxSize}MB`);
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
       return;
     }
 
@@ -181,38 +183,41 @@ export function UploadButton({
   };
 
   return (
-    <div 
-      className="flex flex-col gap-2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {renderButton()}
+    <div className={className}>
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
         onChange={handleInputChange}
         className="hidden"
+        id={id}
         onClick={(e) => e.stopPropagation()}
       />
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm"
-          >
-            <span>{error}</span>
-            <button
-              type="button"
-              onClick={handleErrorDismiss}
-              className="ml-auto hover:text-red-600 transition-colors"
+      <div 
+        className="flex flex-col gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {renderButton()}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm"
             >
-              <X className="h-4 w-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={handleErrorDismiss}
+                className="ml-auto hover:text-red-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 } 

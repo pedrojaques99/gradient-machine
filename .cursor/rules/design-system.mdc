@@ -1,0 +1,215 @@
+# Design System Rules
+
+## Core Principles
+- Minimalist and clean design
+- Dark mode by default
+- Concise and efficient code
+- Soft glassmorphism effects
+- Accent color: #bfff58
+
+## Color System
+```css
+:root {
+  /* Base Colors */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  
+  /* Accent Colors */
+  --accent: 142 76% 36%;  /* #bfff58 */
+  --accent-foreground: 222.2 47.4% 11.2%;
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(20, 20, 20, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
+  /* UI Colors */
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+}
+```
+
+## Typography
+```css
+:root {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-size-base: 16px;
+  --line-height-base: 1.5;
+  
+  /* Font Sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+}
+```
+
+## Spacing System
+```css
+:root {
+  /* Base spacing unit */
+  --space-unit: 0.25rem;
+  
+  /* Spacing scale */
+  --space-1: var(--space-unit);
+  --space-2: calc(var(--space-unit) * 2);
+  --space-3: calc(var(--space-unit) * 3);
+  --space-4: calc(var(--space-unit) * 4);
+  --space-6: calc(var(--space-unit) * 6);
+  --space-8: calc(var(--space-unit) * 8);
+  --space-12: calc(var(--space-unit) * 12);
+  --space-16: calc(var(--space-unit) * 16);
+}
+```
+
+## Border Radius
+```css
+:root {
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+```
+
+## Glassmorphism Components
+```css
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius);
+}
+```
+
+## Component Guidelines
+
+### Buttons
+```css
+.button {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition: all var(--transition-normal);
+}
+
+.button-primary {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.button-primary:hover {
+  opacity: 0.9;
+}
+```
+
+### Cards
+```css
+.card {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border));
+  padding: var(--space-4);
+}
+```
+
+### Inputs
+```css
+.input {
+  background: hsl(var(--input));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: hsl(var(--foreground));
+}
+```
+
+## Layout Rules
+1. Use CSS Grid for main layouts
+2. Flexbox for component-level layouts
+3. Maintain consistent spacing using the spacing system
+4. Keep components modular and reusable
+5. Use CSS custom properties for dynamic values
+6. Follow shadcn/ui component patterns
+
+## Code Guidelines
+1. Use semantic HTML elements
+2. Keep CSS classes concise and meaningful
+3. Follow BEM naming convention
+4. Minimize nesting in CSS
+5. Use CSS custom properties for theming
+6. Keep JavaScript minimal and functional
+7. Use modern CSS features (Grid, Flexbox, Custom Properties)
+8. Follow Next.js and React best practices
+
+## Accessibility
+1. Maintain WCAG 2.1 AA compliance
+2. Ensure sufficient color contrast
+3. Use semantic HTML
+4. Provide focus states
+5. Support keyboard navigation
+6. Include ARIA labels where necessary
+7. Test with screen readers
+
+## Performance
+1. Minimize CSS bundle size
+2. Use CSS containment where appropriate
+3. Optimize animations for performance
+4. Lazy load components when possible
+5. Use modern image formats and optimization
+6. Implement proper code splitting
+
+## Animation Guidelines
+```css
+:root {
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+}
+
+/* Example usage */
+.element {
+  transition: all var(--transition-normal);
+}
+```
+
+## Custom Scrollbar
+```css
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+``` 

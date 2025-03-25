@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { GradientStudio } from './gradient-studio';
+import { GradientStudio } from '@/app/components/features/color/gradient/gradient-studio';
 import { Navigation } from '@/app/components/shared/Navigation';
 import { useGradient } from '@/app/contexts/GradientContext';
 
