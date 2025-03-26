@@ -3,7 +3,7 @@
 import { ColorPreview } from './color-preview';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Palette, X, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Palette, X, AlertCircle, Paintbrush } from 'lucide-react';
 import { useGradient } from '@/app/contexts/GradientContext';
 import { UploadButton } from './UploadButton';
 import { rgbToHex, cn } from '@/app/lib/utils';
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { ColorSwatch } from '../features/color/discovery/color-discovery';
 
 interface ColorSidebarProps {
   colors: string[];
@@ -101,51 +102,38 @@ const ColorItem = ({
   onUpdate: (color: string, index: number) => void;
   roleId: DesignSystemRoleId;
 }) => {
-  const { state } = useGradient();
+  const { state, dispatch } = useGradient();
   const isSelected = state.selectedColor === color;
   const [inputValue, setInputValue] = useState(color);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Update input value when color prop changes
   useEffect(() => {
     setInputValue(color);
   }, [color]);
 
-  // Handle hex input changes
   const handleHexInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.trim();
-    
-    // Remove any non-hex characters
     value = value.replace(/[^0-9A-Fa-f]/g, '');
-    
-    // Add # if not present
     if (!value.startsWith('#')) {
       value = '#' + value;
     }
-    
-    // Limit to 7 characters (#RRGGBB)
     value = value.slice(0, 7);
-    
     setInputValue(value);
     
-    // Only update if we have a valid hex color
     if (value.length === 7 && validateColor(value)) {
       onUpdate(value, index);
     }
   };
 
-  // Handle hex input blur
-  const handleHexInputBlur = () => {
-    if (!validateColor(inputValue)) {
-      setInputValue(color); // Reset to original color if invalid
-    }
-  };
-
-  // Handle hex input keydown
-  const handleHexInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    }
+  const handleColorClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!validateColor(color)) return;
+    
+    // Update global state
+    dispatch({ type: 'SET_SELECTED_COLOR', payload: color });
+    
+    // Call parent handler
+    onSelect(color);
   };
 
   return (
@@ -159,9 +147,13 @@ const ColorItem = ({
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <button
-            className="w-8 h-8 md:w-10 md:h-10 rounded-lg shadow-sm transition-transform hover:scale-105 border border-zinc-800/50"
+            className={cn(
+              "w-8 h-8 rounded-md transition-all",
+              "border border-zinc-800/50",
+              isSelected && "ring-1 ring-accent ring-offset-1 ring-offset-zinc-950"
+            )}
             style={{ backgroundColor: color }}
-            onClick={() => setIsOpen(true)}
+            onClick={handleColorClick}
             aria-label={`${roleId} color: ${color}`}
           />
         </PopoverTrigger>
@@ -178,6 +170,7 @@ const ColorItem = ({
             onChange={(newColor) => {
               onUpdate(newColor, index);
               setInputValue(newColor);
+              setIsOpen(false);
             }}
             compact
           />
@@ -189,8 +182,16 @@ const ColorItem = ({
           <Input
             value={inputValue}
             onChange={handleHexInputChange}
-            onBlur={handleHexInputBlur}
-            onKeyDown={handleHexInputKeyDown}
+            onBlur={() => {
+              if (!validateColor(inputValue)) {
+                setInputValue(color);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
             className={cn(
               "h-7 bg-zinc-900/50 border-zinc-700/50 font-mono text-xs flex-1",
               !validateColor(inputValue) && "border-red-500/50 focus:border-red-500"
@@ -201,10 +202,13 @@ const ColorItem = ({
       </div>
 
       <button
-        onClick={() => onRemove(color)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(color);
+        }}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-800 rounded-lg"
       >
-        <X className="h-4 w-4" />
+        <X className="h-3 w-3" />
       </button>
     </motion.div>
   );
@@ -227,7 +231,7 @@ export function ColorSidebar({
   const [isInteractingWithPopover, setIsInteractingWithPopover] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
-  // Group colors by role
+  // Update role colors grouping to match ColorDiscovery
   const roleColors = useMemo(() => {
     const grouped: Record<DesignSystemRoleId, string[]> = {
       primary: [],
@@ -236,7 +240,8 @@ export function ColorSidebar({
       background: []
     };
 
-    colors.forEach(color => {
+    // Use state.extractedColors instead of colors prop
+    state.extractedColors.forEach(color => {
       const roleId = Object.entries(state.designSystem)
         .find(([_, value]) => value === color)?.[0] as DesignSystemRoleId;
       if (roleId && grouped[roleId]) {
@@ -245,7 +250,7 @@ export function ColorSidebar({
     });
 
     return grouped;
-  }, [colors, state.designSystem]);
+  }, [state.extractedColors, state.designSystem]);
 
   // Optimize click handling
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -280,49 +285,84 @@ export function ColorSidebar({
     };
   }, [handleClickOutside]);
 
-  // Optimize color change handler
+  // Update color change handler to sync with ColorDiscovery
   const handleColorChange = useCallback((color: string, index: number) => {
     if (!validateColor(color)) return;
 
-    const roleId = Object.entries(state.designSystem).find(([_, value]) => value === colors[index])?.[0] as DesignSystemRoleId;
+    // Find the role this color belongs to
+    const roleId = Object.entries(state.designSystem)
+      .find(([_, value]) => value === colors[index])?.[0] as DesignSystemRoleId;
     
-    // Update design system if color is assigned to a role
     if (roleId) {
+      // Update design system
       dispatch({
         type: 'SET_DESIGN_SYSTEM',
         payload: { ...state.designSystem, [roleId]: color }
       });
-    }
 
-    // Update gradient stops if within range
-    if (index < state.colorStops.length) {
-      const newColorStops = state.colorStops.map((stop, i) => 
-        i === index ? { ...stop, color } : stop
-      );
-      dispatch({ type: 'SET_COLOR_STOPS', payload: newColorStops });
+      // Update gradient stops if color is used in gradient
+      const colorIndex = state.colorStops.findIndex(stop => stop.color === colors[index]);
+      if (colorIndex !== -1) {
+        const newColorStops = state.colorStops.map((stop, i) => 
+          i === colorIndex ? { ...stop, color } : stop
+        );
+        dispatch({ type: 'SET_COLOR_STOPS', payload: newColorStops });
+      }
     }
 
     onColorChange?.(color, index);
   }, [dispatch, state.designSystem, state.colorStops, colors, onColorChange]);
 
-  // Simplify color selection
+  // Update color selection to sync with ColorDiscovery
   const handleColorClick = useCallback((e: React.MouseEvent | null, color: string) => {
     if (e) e.stopPropagation();
     if (!validateColor(color)) return;
     
+    // Update local state
     setIsExpanded(true);
-    onColorSelect?.(color);
+    
+    // Update global state
     dispatch({ type: 'SET_SELECTED_COLOR', payload: color });
+    
+    // Call parent handler
+    onColorSelect(color);
   }, [dispatch, onColorSelect]);
+
+  // Update color removal to sync with ColorDiscovery
+  const handleColorRemove = useCallback((color: string) => {
+    // If removing the selected color, clear selection
+    if (state.selectedColor === color) {
+      dispatch({ type: 'SET_SELECTED_COLOR', payload: null });
+      onColorSelect('');
+    }
+
+    const roleId = Object.entries(state.designSystem)
+      .find(([_, value]) => value === color)?.[0] as DesignSystemRoleId;
+    
+    if (roleId) {
+      const newDesignSystem = { ...state.designSystem };
+      delete newDesignSystem[roleId];
+      dispatch({ type: 'SET_DESIGN_SYSTEM', payload: newDesignSystem });
+    }
+
+    // Remove color from extracted colors
+    const newColors = state.extractedColors.filter(c => c !== color);
+    dispatch({ type: 'SET_EXTRACTED_COLORS', payload: newColors });
+  }, [dispatch, state.designSystem, state.selectedColor, state.extractedColors, onColorSelect]);
 
   // Handle role assignment
   const handleRoleAssign = useCallback((roleId: DesignSystemRoleId, color: string) => {
     if (!validateColor(color)) return;
 
+    // Update design system
     dispatch({ 
       type: 'SET_DESIGN_SYSTEM', 
       payload: { ...state.designSystem, [roleId]: color }
     });
+
+    // Clear selection after assignment
+    dispatch({ type: 'SET_SELECTED_COLOR', payload: null });
+    onColorSelect('');
 
     // Show success toast
     const el = document.createElement('div');
@@ -333,7 +373,7 @@ export function ColorSidebar({
       el.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
       setTimeout(() => el.remove(), 150);
     }, 2000);
-  }, [dispatch, state.designSystem]);
+  }, [dispatch, state.designSystem, onColorSelect]);
 
   // Handle color hover for tooltips
   const handleColorHover = useCallback((color: string | null) => {
@@ -363,6 +403,7 @@ export function ColorSidebar({
         }
       });
 
+      // Update extracted colors without considering limit
       dispatch({ type: 'SET_EXTRACTED_COLORS', payload: colors });
       
       // Update gradient stops with first 3 colors
@@ -386,10 +427,6 @@ export function ColorSidebar({
     setIsExpanded(!isExpanded);
   };
 
-  const handleColorRemove = useCallback((color: string) => {
-    dispatch({ type: 'REMOVE_COLOR', payload: color });
-  }, [dispatch]);
-
   return (
     <motion.div
       ref={sidebarRef}
@@ -400,15 +437,20 @@ export function ColorSidebar({
       }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "fixed md:relative z-50 md:z-auto",
-        "bg-zinc-950/95 backdrop-blur-sm md:bg-zinc-950/50",
+        "fixed top-0 left-0 md:sticky md:top-0",
+        "z-50",
+        "bg-background-secondary backdrop-blur-sm md:bg-background",
         "border-r border-zinc-800/50",
-        "h-screen md:h-auto",
+        "h-screen",
         "flex flex-col",
         isExpanded ? "w-full md:w-[300px]" : "w-[60px]"
       )}
     >
-      <div className="flex items-center justify-between p-2 border-b border-zinc-800/50">
+      <div className={cn(
+        "flex items-center justify-between p-2",
+        "border-b border-zinc-900/50",
+        "md:rounded-tr-xl"
+      )}>
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -418,13 +460,13 @@ export function ColorSidebar({
               className="flex items-center gap-2"
             >
               <Palette className="h-5 w-5" />
-              <span className="text-sm font-medium">Color Palette</span>
+              <span className="text-sm font-medium">Paleta de cores</span>
             </motion.div>
           )}
         </AnimatePresence>
         <button
           onClick={handleToggle}
-          className="p-2 hover:bg-zinc-800/50 rounded-lg transition-colors"
+          className="p-2 hover:bg-zinc-850/50 rounded-lg transition-colors"
         >
           {isExpanded ? (
             <ChevronLeft className="h-5 w-5" />
@@ -434,7 +476,9 @@ export function ColorSidebar({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      <div className={cn(
+        "flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent"
+      )}>
         <AnimatePresence mode="wait">
           {isExpanded ? (
             <motion.div
@@ -444,6 +488,42 @@ export function ColorSidebar({
               exit={{ opacity: 0 }}
               className="space-y-6"
             >
+              {/* Color Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">All Colors</span>
+                  <ColorLimitIndicator current={state.extractedColors.length} max={state.maxColors} />
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {state.extractedColors.map((color, index) => (
+                    <ColorSwatch
+                      key={color + index}
+                      color={color}
+                      isSelected={selectedColor === color}
+                      onClick={() => handleColorClick(null, color)}
+                    />
+                  ))}
+                  {state.extractedColors.length < state.maxColors && (
+                    <motion.button
+                      className={cn(
+                        "w-8 h-8 rounded-md transition-all",
+                        "bg-zinc-900/30 hover:bg-zinc-800/50",
+                        "border border-dashed border-zinc-800/50 hover:border-accent/50",
+                        "flex items-center justify-center"
+                      )}
+                      whileHover={{ scale: 1.05 }}
+                      onClick={() => {
+                        setIsExpanded(true);
+                        onColorSelect(state.extractedColors[0] || '#000000');
+                      }}
+                    >
+                      <Paintbrush className="h-3 w-3 text-zinc-400 group-hover:text-accent" />
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+
+              {/* Role Assignment Section */}
               {COLOR_ROLES.map((role) => (
                 <div key={role.id} className="space-y-2">
                   <div className="flex items-center justify-between border-b border-zinc-800/10 pb-1">
@@ -463,6 +543,33 @@ export function ColorSidebar({
                         roleId={role.id}
                       />
                     ))}
+                    {!roleColors[role.id].length && (
+                      <motion.button
+                        className={cn(
+                          "w-full group flex items-center gap-3 p-2 rounded-lg transition-all",
+                          "bg-zinc-900/30 hover:bg-zinc-800/50",
+                          "border border-dashed border-zinc-800/50 hover:border-accent/50"
+                        )}
+                        whileHover={{ scale: 1.02 }}
+                        onClick={() => {
+                          if (selectedColor) {
+                            handleRoleAssign(role.id, selectedColor);
+                          } else {
+                            setIsExpanded(true);
+                            onColorSelect(state.extractedColors[0] || '#000000');
+                          }
+                        }}
+                      >
+                        <div className="w-8 h-8 rounded-md bg-zinc-800/50 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                          <Paintbrush className="h-3 w-3 text-zinc-400 group-hover:text-accent transition-colors" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <span className="text-sm text-zinc-400 group-hover:text-accent transition-colors">
+                            {selectedColor ? `Assign as ${role.name}` : `Add ${role.name} color`}
+                          </span>
+                        </div>
+                      </motion.button>
+                    )}
                   </div>
                 </div>
               ))}

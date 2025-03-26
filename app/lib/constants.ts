@@ -116,7 +116,7 @@ export const UI_SPACING = {
     gap: "gap-4"
   },
   grid: {
-    cols: "grid-cols-2 md:grid-cols-4",
+    cols: "grid-cols-2 md:grid-cols-6",
     gap: "gap-3"
   }
 } as const;

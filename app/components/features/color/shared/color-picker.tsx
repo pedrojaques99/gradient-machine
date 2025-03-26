@@ -5,6 +5,7 @@ import { Button } from '@/app/components/ui/button';
 import { X, Link2, Pipette } from 'lucide-react';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { cn } from '@/app/lib/utils';
+import { useGradient } from '@/app/contexts/GradientContext';
 
 interface ColorPickerProps {
   color?: string;
@@ -22,6 +23,7 @@ export function ColorPicker({
   compact = false
 }: ColorPickerProps) {
   const [showEyeDropper, setShowEyeDropper] = useState(false);
+  const { state } = useGradient();
 
   const handleChange = useCallback((newColor: string) => {
     onChange?.(newColor);
@@ -96,7 +98,7 @@ export function ColorPicker({
       {/* Quick Colors */}
       <div className="border-t border-zinc-800 p-2">
         <div className="grid grid-cols-8 gap-1">
-          {['#FFFFFF', '#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'].map((presetColor) => (
+          {state.extractedColors.slice(0, 8).map((presetColor: string) => (
             <button
               key={presetColor}
               className={cn(
