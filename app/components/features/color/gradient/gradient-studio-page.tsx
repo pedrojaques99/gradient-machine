@@ -13,7 +13,7 @@ export function GradientStudioPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navigation 
         title="Gradient Machine"
         onBack={handleBack}

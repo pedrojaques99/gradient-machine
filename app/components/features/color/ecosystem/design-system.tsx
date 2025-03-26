@@ -17,13 +17,13 @@ import {
 
 // Sample data for the chart
 const data = [
-  { name: 'M', value: 65 },
+  { name: 'S', value: 65 },
   { name: 'T', value: 45 },
-  { name: 'W', value: 85 },
-  { name: 'T', value: 55 },
-  { name: 'F', value: 75 },
+  { name: 'Q', value: 85 },
+  { name: 'Q', value: 55 },
+  { name: 'S', value: 75 },
   { name: 'S', value: 35 },
-  { name: 'S', value: 95 },
+  { name: 'D', value: 95 },
 ];
 
 // Preview Panel Component
@@ -33,7 +33,7 @@ function PreviewPanel() {
   return (
     <div className="space-y-4">
       {/* Buttons Preview */}
-      <Card className="p-4 hover:shadow-md transition-shadow">
+      <Card className="p-6 hover:shadow-md transition-shadow">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">Buttons</Label>
@@ -118,7 +118,7 @@ function PreviewPanel() {
       </Card>
 
       {/* Chart Preview */}
-      <Card className="p-4 hover:shadow-md transition-all duration-300">
+      <Card className="p-6 hover:shadow-md transition-all duration-300">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">Data Visualization</Label>
@@ -229,7 +229,7 @@ function BrandElements() {
   const { state } = useGradient();
 
   return (
-    <Card className="p-4 hover:shadow-md transition-all duration-300">
+    <Card className="p-6 hover:shadow-md transition-all duration-300">
       <div className="space-y-6">
         <Label className="text-sm font-medium">Brand Elements</Label>
         
@@ -238,7 +238,7 @@ function BrandElements() {
           <div className="text-xs text-muted-foreground">Logo</div>
           <motion.div 
             whileHover={{ scale: 1.02 }}
-            className="flex items-center gap-4 p-4 rounded-lg border backdrop-blur-sm transition-all duration-300 group hover:shadow-lg" 
+            className="flex items-center gap-4 p-6 rounded-lg border backdrop-blur-sm transition-all duration-300 group hover:shadow-lg" 
             style={{ 
               backgroundColor: state.designSystem.background,
               borderColor: `${state.designSystem.secondary}30`,
@@ -335,8 +335,11 @@ function BrandElements() {
   );
 }
 
-// Main DesignSystem Component
-export function DesignSystem() {
+interface DesignSystemProps {
+  onColorRemove: (color: string) => void;
+}
+
+export function DesignSystem({ onColorRemove }: DesignSystemProps) {
   const { state, dispatch } = useGradient();
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -488,54 +491,55 @@ export function DesignSystem() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4">
-      {/* Color Scale Preview */}
-      <Card className="p-4 hover:shadow-md transition-shadow">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Color Scale</Label>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium">Color Scales</h3>
+          <p className="text-xs text-muted-foreground">Click to copy, drag to reorder</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshScales}
+          className="text-xs"
+        >
+          <RefreshCw className="w-3 h-3 mr-1" />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid gap-4">
+        {state.extractedColors.map((color, index) => (
+          <div key={color} className="relative group">
+            <TooltipProvider>
+              <ColorScale color={color} label={`Color ${index + 1}`} />
+            </TooltipProvider>
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRefreshScales}
-              disabled={isRefreshing}
-              className="text-xs text-muted-foreground hover:text-accent transition-colors"
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onColorRemove(color)}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh Scales
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
             </Button>
           </div>
-          <TooltipProvider>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <ColorScale 
-                  color={state.designSystem.primary} 
-                  label="Primary" 
-                />
-                <ColorScale 
-                  color={state.designSystem.secondary} 
-                  label="Secondary" 
-                />
-              </div>
-              <div className="space-y-4">
-                <ColorScale 
-                  color={state.designSystem.accent} 
-                  label="Accent" 
-                />
-                <ColorScale 
-                  color={state.designSystem.background} 
-                  label="Background" 
-                />
-              </div>
-            </div>
-          </TooltipProvider>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PreviewPanel />
-        <BrandElements />
+        ))}
       </div>
+
+      <PreviewPanel />
+      <BrandElements />
     </div>
   );
 } 

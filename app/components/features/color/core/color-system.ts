@@ -102,9 +102,9 @@ export interface ColorVariation {
 export const COLOR_ROLES: ColorRole[] = [
   {
     id: 'primary',
-    name: "Primary",
-    description: "Main brand color",
-    example: "Buttons, links, and primary actions",
+    name: "Primária",
+    description: "Cor principal da marca",
+    example: "Botões, links e ações principais",
     criteria: {
       brightness: [0.3, 0.7],
       saturation: [0.5, 1],
@@ -113,9 +113,9 @@ export const COLOR_ROLES: ColorRole[] = [
   },
   {
     id: 'secondary',
-    name: "Secondary",
-    description: "Supporting color",
-    example: "Secondary buttons, borders, and accents",
+    name: "Secundária",
+    description: "Cor de suporte",
+    example: "Botões secundários, bordas e acentos",
     criteria: {
       brightness: [0.2, 0.6],
       saturation: [0.3, 0.8],
@@ -124,9 +124,9 @@ export const COLOR_ROLES: ColorRole[] = [
   },
   {
     id: 'accent',
-    name: "Accent",
-    description: "Highlight color",
-    example: "Highlights, badges, and special elements",
+    name: "Destaque",
+    description: "Cor de destaque",
+    example: "Destaques, badges e elementos especiais",
     criteria: {
       brightness: [0.4, 0.8],
       saturation: [0.6, 1],
@@ -136,8 +136,8 @@ export const COLOR_ROLES: ColorRole[] = [
   {
     id: 'background',
     name: "Background",
-    description: "Base color",
-    example: "Page background, cards, and containers",
+    description: "Cor de fundo",
+    example: "Background, cartões e fundos",
     criteria: {
       brightness: [0, 0.3],
       saturation: [0, 0.3],

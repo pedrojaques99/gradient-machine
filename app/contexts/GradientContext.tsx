@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, ReactNode, useMemo, useState } from 'react';
+import { createContext, useContext, useReducer, ReactNode, useMemo, useState, useCallback } from 'react';
 import { ColorStop, GradientStyle } from '@/app/lib/utils/colors';
 
 interface GradientState {
@@ -15,6 +15,8 @@ interface GradientState {
   canvasHeight: number;
   handleSize: number;
   gradientSize: number;
+  maxColors: number;
+  gradients: string[];
   gradientSettings: {
     texture: string;
     intensity: number;
@@ -45,7 +47,10 @@ type GradientAction =
   | { type: 'SET_CANVAS_SIZE'; payload: { width: number; height: number } }
   | { type: 'SET_HANDLE_SIZE'; payload: number }
   | { type: 'SET_GRADIENT_SIZE'; payload: number }
-  | { type: 'SET_DESIGN_SYSTEM'; payload: { primary: string; secondary: string; accent: string; background: string; text: string } };
+  | { type: 'SET_DESIGN_SYSTEM'; payload: { primary: string; secondary: string; accent: string; background: string; text: string } }
+  | { type: 'REMOVE_COLOR'; payload: string }
+  | { type: 'SET_MAX_COLORS'; payload: number }
+  | { type: 'ADD_GRADIENT'; payload: string };
 
 const initialState: GradientState = {
   interface: 'discovery',
@@ -53,8 +58,12 @@ const initialState: GradientState = {
   selectedColor: null,
   selectedColorIndex: null,
   colorStops: [
-    { id: '1', color: '#1C9488', position: 0 },
-    { id: '2', color: '#2563EB', position: 1 }
+    { id: '1', color: '#bfff58', position: 0 },
+    { id: '2', color: '#111111', position: 1 },
+    { id: '3', color: '#d1d1d1', position: 2 },
+    { id: '4', color: '#111111', position: 3 },
+    { id: '5', color: '#CDDFAFFF', position: 4 },
+    
   ],
   style: 'linear',
   colorFormat: 'hex',
@@ -62,6 +71,8 @@ const initialState: GradientState = {
   canvasHeight: 400,
   handleSize: 16,
   gradientSize: 100,
+  maxColors: 10,
+  gradients: [],
   gradientSettings: {
     texture: 'smooth',
     intensity: 0,
@@ -69,9 +80,9 @@ const initialState: GradientState = {
     halftoneMode: false
   },
   designSystem: {
-    primary: '#1C9488',
-    secondary: '#164E63',
-    accent: '#0EA5E9',
+    primary: '#bfff58',
+    secondary: '#111111',
+    accent: '#bfff58',
     background: '#0F172A',
     text: '#F8FAFC'
   }
@@ -86,28 +97,31 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
       const colors = action.payload;
       if (colors.length === 0) return state;
 
+      // Ensure we don't exceed max colors
+      const limitedColors = colors.slice(0, state.maxColors);
+
       // Automatically update design system when new colors are extracted
       const designSystem = {
-        primary: colors[0] || state.designSystem.primary,
-        secondary: colors[1] || state.designSystem.secondary,
-        accent: colors[2] || state.designSystem.accent,
-        background: colors[3] || state.designSystem.background,
-        text: colors[4] || state.designSystem.text
+        primary: limitedColors[0] || state.designSystem.primary,
+        secondary: limitedColors[1] || state.designSystem.secondary,
+        accent: limitedColors[2] || state.designSystem.accent,
+        background: limitedColors[3] || state.designSystem.background,
+        text: state.designSystem.text || '#FFFFFF'
       };
       
       // Create color stops from extracted colors
-      const colorStops = colors.map((color, index) => ({
+      const colorStops = limitedColors.map((color, index) => ({
         id: index.toString(),
         color,
-        position: index / Math.max(1, colors.length - 1)
+        position: index / Math.max(1, limitedColors.length - 1)
       }));
 
       return {
         ...state,
-        extractedColors: colors,
+        extractedColors: limitedColors,
         designSystem,
         colorStops,
-        selectedColor: colors[0] || null
+        selectedColor: limitedColors[0] || null
       };
     }
     
@@ -182,6 +196,42 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
         designSystem: action.payload
       };
 
+    case 'REMOVE_COLOR': {
+      const colorToRemove = action.payload;
+      const newColors = state.extractedColors.filter(color => color !== colorToRemove);
+      
+      // Update design system
+      const newDesignSystem = { ...state.designSystem };
+      Object.entries(newDesignSystem).forEach(([key, value]) => {
+        if (value === colorToRemove) {
+          newDesignSystem[key as keyof typeof newDesignSystem] = '';
+        }
+      });
+
+      // Update color stops
+      const newColorStops = state.colorStops.filter(stop => stop.color !== colorToRemove);
+      
+      return {
+        ...state,
+        extractedColors: newColors,
+        designSystem: newDesignSystem,
+        colorStops: newColorStops,
+        selectedColor: state.selectedColor === colorToRemove ? null : state.selectedColor
+      };
+    }
+
+    case 'SET_MAX_COLORS':
+      return {
+        ...state,
+        maxColors: action.payload
+      };
+
+    case 'ADD_GRADIENT':
+      return {
+        ...state,
+        gradients: [...state.gradients, action.payload]
+      };
+
     default:
       return state;
   }
@@ -190,7 +240,47 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
 const GradientContext = createContext<{
   state: GradientState;
   dispatch: React.Dispatch<GradientAction>;
+  error: string | null;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
 } | null>(null);
+
+const ColorStopsContext = createContext<ColorStop[] | null>(null);
+const DesignSystemContext = createContext<{ primary: string; secondary: string; accent: string; background: string; text: string } | null>(null);
+const GradientSettingsContext = createContext<{
+  texture: string;
+  intensity: number;
+  gitterIntensity: number;
+  halftoneMode: boolean;
+} | null>(null);
+
+export function GradientProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(gradientReducer, initialState);
+  const [error, setError] = useState<string | null>(null);
+
+  // Memoize context values to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    state,
+    dispatch,
+    error,
+    setError
+  }), [state, error]);
+
+  const colorStopsValue = useMemo(() => state.colorStops, [state.colorStops]);
+  const designSystemValue = useMemo(() => state.designSystem, [state.designSystem]);
+  const gradientSettingsValue = useMemo(() => state.gradientSettings, [state.gradientSettings]);
+
+  return (
+    <GradientContext.Provider value={contextValue}>
+      <ColorStopsContext.Provider value={colorStopsValue}>
+        <DesignSystemContext.Provider value={designSystemValue}>
+          <GradientSettingsContext.Provider value={gradientSettingsValue}>
+            {children}
+          </GradientSettingsContext.Provider>
+        </DesignSystemContext.Provider>
+      </ColorStopsContext.Provider>
+    </GradientContext.Provider>
+  );
+}
 
 export function useGradient() {
   const context = useContext(GradientContext);
@@ -200,23 +290,37 @@ export function useGradient() {
   return context;
 }
 
-export function GradientProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(gradientReducer, initialState);
-  const value = useMemo(() => ({ state, dispatch }), [state]);
-
-  return (
-    <GradientContext.Provider value={value}>
-      {children}
-    </GradientContext.Provider>
-  );
+export function useColorStops() {
+  const context = useContext(ColorStopsContext);
+  if (!context) {
+    throw new Error('useColorStops must be used within a GradientProvider');
+  }
+  return context;
 }
 
-export function useColorStops() {
-  const { state } = useGradient();
-  return state.colorStops;
+export function useDesignSystem() {
+  const context = useContext(DesignSystemContext);
+  if (!context) {
+    throw new Error('useDesignSystem must be used within a GradientProvider');
+  }
+  return context;
+}
+
+export function useGradientSettings() {
+  const context = useContext(GradientSettingsContext);
+  if (!context) {
+    throw new Error('useGradientSettings must be used within a GradientProvider');
+  }
+  return context;
 }
 
 export function useGradientError() {
-  const [error, setError] = useState<string | null>(null);
-  return { error, setError };
+  const context = useContext(GradientContext);
+  if (!context) {
+    throw new Error('useGradientError must be used within a GradientProvider');
+  }
+  return {
+    error: context.error,
+    setError: context.setError
+  };
 } 

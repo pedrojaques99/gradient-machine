@@ -61,6 +61,7 @@ export function GradientCanvas({
   const [isVertical, setIsVertical] = useState(false);
   const [conicRotation, setConicRotation] = useState(0);
   const rafRef = useRef<number | undefined>(undefined);
+  const lastDrawRef = useRef<number>(0);
 
   // Initialize canvas size
   useEffect(() => {
@@ -120,214 +121,224 @@ export function GradientCanvas({
     }
   }, [gradientSize, dispatch]);
 
-  // Drawing function
+  // Optimize canvas drawing with requestAnimationFrame
   const drawCanvas = useCallback(() => {
+    const now = performance.now();
+    if (now - lastDrawRef.current < 16) return; // Limit to ~60fps
+    lastDrawRef.current = now;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = state.canvasWidth;
-    const height = state.canvasHeight;
-    const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(width, height) / 2 * (state.gradientSize / 100);
-
-    // Clear canvas and set background
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, width, height);
-
-    // Create gradient based on style
-    let gradient: CanvasGradient | undefined;
-    
-    switch (gradientStyle) {
-      case 'linear':
-        gradient = ctx.createLinearGradient(
-          isVertical ? 0 : 0,
-          isVertical ? 0 : 0,
-          isVertical ? 0 : width,
-          isVertical ? height : 0
-        );
-        break;
-      case 'radial':
-        gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-        break;
-      case 'conic':
-        gradient = ctx.createConicGradient(0, centerX, centerY);
-        break;
-      case 'diagonal':
-        gradient = ctx.createLinearGradient(0, 0, width, height);
-        break;
-      case 'fluid':
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        colorStops.forEach((stop, index) => {
-          const x = (stop.x ?? stop.position) * width;
-          const y = (stop.y ?? 0.5) * height;
-          const gradientRadius = radius * (state.handleSize / 16) * 0.8;
-          const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-          fluidGradient.addColorStop(0, stop.color);
-          fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = fluidGradient;
-          ctx.beginPath();
-          ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.restore();
-        break;
-      case 'soft':
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        colorStops.forEach((stop, index) => {
-          const x = (stop.x ?? stop.position) * width;
-          const y = (stop.y ?? 0.5) * height;
-          const gradientRadius = radius * (state.handleSize / 16) * 1.2;
-          const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-          softGradient.addColorStop(0, stop.color);
-          softGradient.addColorStop(0.5, `${stop.color}80`);
-          softGradient.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = softGradient;
-          ctx.beginPath();
-          ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.restore();
-        break;
+    // Clear previous animation frame
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
     }
 
-    // Add color stops to gradient for non-fluid/soft styles
-    if (gradient && gradientStyle !== 'fluid' && gradientStyle !== 'soft') {
-      colorStops.forEach(stop => {
-        gradient.addColorStop(stop.position, stop.color);
-      });
-      ctx.fillStyle = gradient;
+    // Schedule next frame
+    rafRef.current = requestAnimationFrame(() => {
+      const width = state.canvasWidth;
+      const height = state.canvasHeight;
+      const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) / 2 * (state.gradientSize / 100);
+
+      // Clear canvas and set background
+      ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, width, height);
-    }
 
-    // Draw effects if enabled
-    if (state.gradientSettings.gitterIntensity > 0) {
-      ctx.save();
-      ctx.globalAlpha = state.gradientSettings.gitterIntensity / 100;
-      ctx.globalCompositeOperation = 'overlay';
-      const pattern = ctx.createPattern(createGitterPattern(ctx, 4), 'repeat');
-      if (pattern) {
-        ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, width, height);
-      }
-      ctx.restore();
-    }
-
-    if (state.gradientSettings.halftoneMode) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'overlay';
-      const pattern = ctx.createPattern(createHalftonePattern(ctx, 4, 8), 'repeat');
-      if (pattern) {
-        ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, width, height);
-      }
-      ctx.restore();
-    }
-
-    // Draw track if enabled
-    if (showTrack) {
-      ctx.save();
-      ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
-      const trackX = isVertical ? width - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
-      const trackY = isVertical ? TRACK.PADDING : height - SIZE.DEFAULT - TRACK.HEIGHT;
-      const trackWidth = isVertical ? TRACK.HEIGHT : width - TRACK.PADDING * 2;
-      const trackHeight = isVertical ? height - TRACK.PADDING * 2 : TRACK.HEIGHT;
-
-      ctx.beginPath();
-      ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // Draw color stops
-    colorStops.forEach((stop, index) => {
-      let x, y;
+      // Create gradient based on style
+      let gradient: CanvasGradient | undefined;
+      
       switch (gradientStyle) {
         case 'linear':
-          x = isVertical 
-            ? width - SIZE.DEFAULT - TRACK.HEIGHT / 2 
-            : TRACK.PADDING + stop.position * (width - TRACK.PADDING * 2);
-          y = isVertical 
-            ? TRACK.PADDING + stop.position * (height - TRACK.PADDING * 2)
-            : height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+          gradient = ctx.createLinearGradient(
+            isVertical ? 0 : 0,
+            isVertical ? 0 : 0,
+            isVertical ? 0 : width,
+            isVertical ? height : 0
+          );
           break;
         case 'radial':
-          x = width / 2;
-          y = height / 2 + (stop.position - 0.5) * height;
+          gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
           break;
         case 'conic':
-          const angle = stop.position * Math.PI * 2;
-          x = centerX + Math.cos(angle) * radius;
-          y = centerY + Math.sin(angle) * radius;
+          gradient = ctx.createConicGradient(0, centerX, centerY);
           break;
         case 'diagonal':
-          x = stop.position * width;
-          y = stop.position * height;
+          gradient = ctx.createLinearGradient(0, 0, width, height);
           break;
         case 'fluid':
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          colorStops.forEach((stop, index) => {
+            const x = (stop.x ?? stop.position) * width;
+            const y = (stop.y ?? 0.5) * height;
+            const gradientRadius = radius * (state.handleSize / 16) * 0.8;
+            const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+            fluidGradient.addColorStop(0, stop.color);
+            fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = fluidGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+          break;
         case 'soft':
-          x = (stop.x ?? stop.position) * width;
-          y = (stop.y ?? 0.5) * height;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          colorStops.forEach((stop, index) => {
+            const x = (stop.x ?? stop.position) * width;
+            const y = (stop.y ?? 0.5) * height;
+            const gradientRadius = radius * (state.handleSize / 16) * 1.2;
+            const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+            softGradient.addColorStop(0, stop.color);
+            softGradient.addColorStop(0.5, `${stop.color}80`);
+            softGradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = softGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
           break;
       }
 
-      const isSelected = index === state.selectedColorIndex;
-      const isHovered = index === hoverIndex;
-      const isDragging = index === draggingIndex;
-      const scale = isDragging ? SIZE.ACTIVE / SIZE.DEFAULT : 
-                   isHovered ? SIZE.HOVER / SIZE.DEFAULT : 1;
+      // Add color stops to gradient for non-fluid/soft styles
+      if (gradient) {
+        colorStops.forEach(stop => {
+          gradient!.addColorStop(stop.position, stop.color);
+        });
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+      }
 
-      // Draw guide line for selected stop
-      if (isSelected && showTrack) {
+      // Draw effects if enabled
+      if (state.gradientSettings.gitterIntensity > 0) {
         ctx.save();
-        ctx.beginPath();
-        if (isVertical) {
-          ctx.moveTo(0, y);
-          ctx.lineTo(width, y);
-        } else {
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, height);
+        ctx.globalAlpha = state.gradientSettings.gitterIntensity / 100;
+        ctx.globalCompositeOperation = 'overlay';
+        const pattern = ctx.createPattern(createGitterPattern(ctx, 4), 'repeat');
+        if (pattern) {
+          ctx.fillStyle = pattern;
+          ctx.fillRect(0, 0, width, height);
         }
-        ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
-        ctx.lineWidth = GUIDE_LINE.WIDTH;
-        ctx.stroke();
         ctx.restore();
       }
 
-      // Draw stop handle
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(scale, scale);
-      
-      // Shadow
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
+      if (state.gradientSettings.halftoneMode) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'overlay';
+        const pattern = ctx.createPattern(createHalftonePattern(ctx, 4, 8), 'repeat');
+        if (pattern) {
+          ctx.fillStyle = pattern;
+          ctx.fillRect(0, 0, width, height);
+        }
+        ctx.restore();
+      }
 
-      // Stop circle
-      ctx.beginPath();
-      ctx.arc(0, 0, SIZE.DEFAULT / 2, 0, Math.PI * 2);
-      ctx.fillStyle = stop.color;
-      ctx.fill();
+      // Draw track if enabled
+      if (showTrack) {
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
+        const trackX = isVertical ? width - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
+        const trackY = isVertical ? TRACK.PADDING : height - SIZE.DEFAULT - TRACK.HEIGHT;
+        const trackWidth = isVertical ? TRACK.HEIGHT : width - TRACK.PADDING * 2;
+        const trackHeight = isVertical ? height - TRACK.PADDING * 2 : TRACK.HEIGHT;
 
-      // Border
-      ctx.strokeStyle = isSelected || isHovered ? 'hsl(var(--primary))' : 'white';
-      ctx.lineWidth = isSelected || isDragging ? BORDER.HOVER_WIDTH : BORDER.WIDTH;
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
+        ctx.fill();
+        ctx.restore();
+      }
 
-      ctx.restore();
+      // Draw color stops
+      colorStops.forEach((stop, index) => {
+        let x, y;
+        switch (gradientStyle) {
+          case 'linear':
+            x = isVertical 
+              ? width - SIZE.DEFAULT - TRACK.HEIGHT / 2 
+              : TRACK.PADDING + stop.position * (width - TRACK.PADDING * 2);
+            y = isVertical 
+              ? TRACK.PADDING + stop.position * (height - TRACK.PADDING * 2)
+              : height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+            break;
+          case 'radial':
+            x = width / 2;
+            y = height / 2 + (stop.position - 0.5) * height;
+            break;
+          case 'conic':
+            const angle = stop.position * Math.PI * 2;
+            x = centerX + Math.cos(angle) * radius;
+            y = centerY + Math.sin(angle) * radius;
+            break;
+          case 'diagonal':
+            x = stop.position * width;
+            y = stop.position * height;
+            break;
+          case 'fluid':
+          case 'soft':
+            x = (stop.x ?? stop.position) * width;
+            y = (stop.y ?? 0.5) * height;
+            break;
+        }
+
+        const isSelected = index === state.selectedColorIndex;
+        const isHovered = index === hoverIndex;
+        const isDragging = index === draggingIndex;
+        const scale = isDragging ? SIZE.ACTIVE / SIZE.DEFAULT : 
+                     isHovered ? SIZE.HOVER / SIZE.DEFAULT : 1;
+
+        // Draw guide line for selected stop
+        if (isSelected && showTrack) {
+          ctx.save();
+          ctx.beginPath();
+          if (isVertical) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+          } else {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+          }
+          ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
+          ctx.lineWidth = GUIDE_LINE.WIDTH;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Draw stop handle
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        
+        // Shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        // Stop circle
+        ctx.beginPath();
+        ctx.arc(0, 0, SIZE.DEFAULT / 2, 0, Math.PI * 2);
+        ctx.fillStyle = stop.color;
+        ctx.fill();
+
+        // Border
+        ctx.strokeStyle = isSelected || isHovered ? 'hsl(var(--primary))' : 'white';
+        ctx.lineWidth = isSelected || isDragging ? BORDER.HOVER_WIDTH : BORDER.WIDTH;
+        ctx.stroke();
+
+        ctx.restore();
+      });
     });
+  }, [colorStops, gradientStyle, isVertical, backgroundColor, state.gradientSize, state.handleSize]);
 
-    rafRef.current = requestAnimationFrame(drawCanvas);
-  }, [colorStops, isVertical, state.selectedColorIndex, hoverIndex, draggingIndex, state.canvasWidth, state.canvasHeight, gradientStyle, showTrack, state.handleSize, state.gradientSize, state.gradientSettings.gitterIntensity, state.gradientSettings.halftoneMode, backgroundColor]);
-
-  // Clean up RAF on unmount
+  // Cleanup animation frame on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current) {

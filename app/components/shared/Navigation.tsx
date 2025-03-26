@@ -23,7 +23,7 @@ export function Navigation({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex items-center justify-between w-full px-6 py-4 border-b bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-40"
+      className="flex items-center justify-between w-full px-6 py-4 border-b bg-background backdrop-blur-sm sticky top-0 z-40"
     >
       <div className="flex items-center gap-4">
         {onBack && (

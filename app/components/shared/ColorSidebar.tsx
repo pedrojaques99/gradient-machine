@@ -1,9 +1,9 @@
 'use client';
 
 import { ColorPreview } from './color-preview';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Palette, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Palette, X, AlertCircle } from 'lucide-react';
 import { useGradient } from '@/app/contexts/GradientContext';
 import { UploadButton } from './UploadButton';
 import { rgbToHex, cn } from '@/app/lib/utils';
@@ -70,6 +70,120 @@ async function extractColorsFromImage(file: File): Promise<string[]> {
     reader.readAsDataURL(file);
   });
 }
+
+const ColorLimitIndicator = ({ current, max }: { current: number; max: number }) => {
+  const remaining = max - current;
+  const isLimitReached = current >= max;
+
+  return (
+    <div className={cn(
+      "flex items-center gap-2 text-xs font-medium",
+      isLimitReached ? "text-red-400" : "text-muted-foreground"
+    )}>
+      {isLimitReached && <AlertCircle className="h-3 w-3" />}
+      <span>{remaining === 0 ? "Color limit reached" : `${remaining} colors remaining`}</span>
+    </div>
+  );
+};
+
+const ColorItem = ({ 
+  color, 
+  index, 
+  onRemove, 
+  onSelect, 
+  onUpdate,
+  onRoleAssign
+}: { 
+  color: string; 
+  index: number; 
+  onRemove: (color: string) => void;
+  onSelect: (color: string) => void;
+  onUpdate: (color: string, index: number) => void;
+  onRoleAssign: (roleId: DesignSystemRoleId, color: string) => void;
+}) => {
+  const { state } = useGradient();
+  const isSelected = state.selectedColor === color;
+  const roleId = Object.entries(state.designSystem)
+    .find(([_, value]) => value === color)?.[0] as DesignSystemRoleId;
+
+  const tooltipContent = useMemo(() => (
+    <TooltipContent 
+      side="right" 
+      sideOffset={5}
+      className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+    >
+      <p className="text-xs">Click to select color</p>
+    </TooltipContent>
+  ), []);
+
+  return (
+    <motion.div
+      className={cn(
+        "group flex items-center gap-2 p-2 rounded-lg transition-all",
+        "bg-zinc-900/50 hover:bg-zinc-800/50",
+        isSelected && "ring-1 ring-accent"
+      )}
+    >
+      <Popover>
+        <PopoverTrigger asChild>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="w-10 h-10 rounded-lg shadow-sm transition-transform hover:scale-105 border border-zinc-800/50"
+                  style={{ backgroundColor: color }}
+                  onClick={() => onSelect(color)}
+                  aria-label={`Color ${index + 1}: ${color}`}
+                />
+              </TooltipTrigger>
+              {tooltipContent}
+            </Tooltip>
+          </TooltipProvider>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0 border-zinc-800">
+          <ColorPicker
+            color={color}
+            onChange={(newColor) => onUpdate(newColor, index)}
+            compact
+          />
+        </PopoverContent>
+      </Popover>
+
+      <div className="flex-1 space-y-2">
+        <Input
+          value={color}
+          onChange={(e) => onUpdate(e.target.value, index)}
+          className="h-7 bg-zinc-900/50 border-zinc-700/50 font-mono text-xs"
+        />
+        <Select
+          value={roleId || ''}
+          onValueChange={(role) => {
+            if (!validateColor(color)) return;
+            onRoleAssign(role as DesignSystemRoleId, color);
+          }}
+        >
+          <SelectTrigger className="h-7 text-xs bg-zinc-900/50 border-zinc-700/50">
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            {COLOR_ROLES.map((role) => (
+              <SelectItem key={role.id} value={role.id} className="text-xs">
+                {role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <button
+        onClick={() => onRemove(color)}
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-800 rounded-lg"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </motion.div>
+  );
+};
 
 export function ColorSidebar({
   colors,
@@ -146,8 +260,8 @@ export function ColorSidebar({
   }, [dispatch, state.designSystem, state.colorStops, colors, onColorChange]);
 
   // Simplify color selection
-  const handleColorClick = useCallback((e: React.MouseEvent, color: string) => {
-    e.stopPropagation();
+  const handleColorClick = useCallback((e: React.MouseEvent | null, color: string) => {
+    if (e) e.stopPropagation();
     if (!validateColor(color)) return;
     
     setIsExpanded(true);
@@ -221,11 +335,9 @@ export function ColorSidebar({
     setIsExpanded(!isExpanded);
   };
 
-  const handleRemoveRole = useCallback((roleId: DesignSystemRoleId) => {
-    const newDesignSystem = { ...state.designSystem };
-    delete newDesignSystem[roleId];
-    dispatch({ type: 'SET_DESIGN_SYSTEM', payload: newDesignSystem });
-  }, [dispatch, state.designSystem]);
+  const handleColorRemove = useCallback((color: string) => {
+    dispatch({ type: 'REMOVE_COLOR', payload: color });
+  }, [dispatch]);
 
   return (
     <motion.div
@@ -260,77 +372,32 @@ export function ColorSidebar({
                 transition={{ duration: 0.2 }}
                 className="p-4 space-y-4"
               >
-                {/* Unified Color Management */}
                 <div className="space-y-4">
                   <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground px-1">Colors</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-muted-foreground px-1">Colors</h3>
+                      <ColorLimitIndicator 
+                        current={colors.length} 
+                        max={state.maxColors} 
+                      />
+                    </div>
                     
-                    {/* Color List */}
                     <div className="space-y-2">
                       {colors.map((color, index) => (
-                        <motion.div
-                          key={color + index}
-                          className={cn(
-                            "group flex items-center gap-2 p-2 rounded-lg transition-all",
-                            "bg-zinc-900/50 hover:bg-zinc-800/50",
-                            selectedColor === color && "ring-1 ring-accent"
-                          )}
-                        >
-                          {/* Color Preview */}
-                          <Popover onOpenChange={handlePopoverOpenChange}>
-                            <PopoverTrigger asChild>
-                              <button
-                                className="w-10 h-10 rounded-lg shadow-sm transition-transform hover:scale-105 border border-zinc-800/50"
-                                style={{ backgroundColor: color }}
-                              />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 border-zinc-800">
-                              <ColorPicker
-                                color={color}
-                                onChange={(newColor) => handleColorChange(newColor, index)}
-                                compact
-                              />
-                            </PopoverContent>
-                          </Popover>
-
-                          {/* Color Input and Role */}
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={color}
-                              onChange={(e) => handleColorChange(e.target.value, index)}
-                              className="h-7 bg-zinc-900/50 border-zinc-700/50 font-mono text-xs"
-                            />
-                            <Select
-                              value={Object.entries(state.designSystem).find(([_, value]) => value === color)?.[0] || ''}
-                              onValueChange={(role) => handleRoleAssign(role as DesignSystemRoleId, color)}
-                            >
-                              <SelectTrigger className="h-7 text-xs bg-zinc-900/50 border-zinc-700/50">
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {COLOR_ROLES.map((role) => (
-                                  <SelectItem key={role.id} value={role.id} className="text-xs">
-                                    {role.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Remove Color */}
-                          <button
-                            onClick={() => handleRemoveRole(Object.entries(state.designSystem).find(([_, value]) => value === color)?.[0] as DesignSystemRoleId)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-800 rounded-lg"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </motion.div>
+                        <ColorItem
+                          key={color}
+                          color={color}
+                          index={index}
+                          onRemove={handleColorRemove}
+                          onSelect={(color) => handleColorClick(null, color)}
+                          onUpdate={handleColorChange}
+                          onRoleAssign={handleRoleAssign}
+                        />
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="space-y-2">
                   <button
                     onClick={(e) => {

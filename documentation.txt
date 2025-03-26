@@ -1,0 +1,179 @@
+# Gradient Machine Documentation
+
+## Overview
+Gradient Machine is a sophisticated gradient generator application that allows users to create, manipulate, and experiment with gradients and color systems. The application features three main interfaces: Color Discovery, Color Ecosystem, and Gradient Studio.
+
+## User Journey
+
+### 1. Color Discovery Interface
+#### Initial Experience
+- Users land on the Color Discovery interface by default
+- Upload images to extract colors
+- View a grid of color swatches from the uploaded image
+
+#### Color Selection & Analysis
+- Select colors from extracted swatches
+- View color properties:
+  * Brightness
+  * Saturation
+  * Contrast
+- Access color variations
+- Explore color harmony options
+- Modify colors using the color picker
+
+#### Design System Integration
+- Assign colors to design system roles:
+  * Primary
+  * Secondary
+  * Accent
+  * Background
+  * Text
+- View role descriptions and purposes
+
+### 2. Color Ecosystem Interface
+#### System Overview
+- Complete design system visualization
+- Color relationship display
+- System-wide adjustment capabilities
+
+#### Color Relationships
+- Color harmony visualization
+- Contrast analysis
+- Design system fine-tuning
+
+### 3. Gradient Studio Interface
+#### Gradient Creation
+- Create gradients using selected colors
+- Available gradient styles:
+  * Linear
+  * Radial
+  * Conic
+- Adjustable color stops and positions
+
+#### Advanced Features
+- Texture controls
+- Intensity adjustments
+- Gitter effects
+- Halftone mode
+- Canvas size customization
+
+#### Export & Preview
+- Real-time preview
+- Multiple color format options:
+  * RGB
+  * HSL
+  * HEX
+- Export capabilities
+
+## Technical Documentation
+
+### Core Components
+
+#### 1. State Management
+- React Context implementation (GradientContext)
+- Three main interface states
+- Color extraction and manipulation
+- Gradient settings and design system control
+
+#### 2. Key Features
+- Image color extraction
+- Color analysis and properties
+- Design system management
+- Gradient generation and manipulation
+- Real-time preview and updates
+
+#### 3. Technical Stack
+- Next.js with TypeScript
+- Framer Motion for animations
+- Tailwind CSS for styling
+- Custom color manipulation utilities
+
+#### 4. State Structure
+```typescript
+interface GradientState {
+  interface: 'discovery' | 'ecosystem' | 'gradient-studio';
+  extractedColors: string[];
+  selectedColor: string | null;
+  colorStops: ColorStop[];
+  style: GradientStyle;
+  colorFormat: 'rgb' | 'hsl' | 'hex';
+  gradientSettings: {
+    texture: string;
+    intensity: number;
+    gitterIntensity: number;
+    halftoneMode: boolean;
+  };
+  designSystem: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    text: string;
+  };
+}
+```
+
+#### 5. Key Actions
+- Interface switching
+- Color extraction and selection
+- Gradient style changes
+- Design system updates
+- Canvas and handle size adjustments
+- Gradient settings modifications
+
+## File Structure
+```
+app/
+├── components/
+│   ├── features/
+│   │   └── color/
+│   │       ├── discovery/
+│   │       ├── ecosystem/
+│   │       └── studio/
+│   ├── shared/
+│   └── ui/
+├── contexts/
+├── hooks/
+├── lib/
+├── style/
+└── types/
+```
+
+## Development Guidelines
+
+### Code Style
+- Use functional components
+- Implement TypeScript for type safety
+- Follow React best practices
+- Maintain clean and simple code structure
+
+### UI/UX Principles
+- Modern and clean interface
+- Dynamic interactions when necessary
+- Intuitive user flow
+- Responsive design
+
+### Performance Considerations
+- Optimize color calculations
+- Efficient state management
+- Smooth animations
+- Responsive user interactions
+
+## Future Improvements
+1. Enhanced color extraction algorithms
+2. Additional gradient styles
+3. Advanced export options
+4. Collaboration features
+5. Template system
+6. Color palette sharing
+7. Advanced color analysis tools
+8. Custom texture support
+9. Batch processing
+10. API integration capabilities
+
+## Maintenance Notes
+- Regular dependency updates
+- Performance monitoring
+- User feedback integration
+- Bug tracking and resolution
+- Feature enhancement planning 

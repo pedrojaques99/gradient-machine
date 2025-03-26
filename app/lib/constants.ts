@@ -78,4 +78,53 @@ export const BREAKPOINTS = {
 export const DEFAULT_COLORS = {
   PRIMARY: '#7961D3',
   STOPS: ['#ff0000', '#00ff00'],
+} as const;
+
+export const GRADIENT_CLASSES = {
+  base: "animate-gradient bg-gradient-to-r blur-2xl transition-all duration-700",
+  colors: "from-accent/10 via-zinc-900/50 to-accent/10",
+  hover: "group-hover:blur-xl group-hover:from-accent/20 group-hover:to-accent/20",
+  delayed: {
+    base: "animate-gradient-delayed",
+    colors: "from-zinc-900/40 via-accent/10 to-zinc-900/40",
+    hover: "group-hover:via-accent/20"
+  },
+  moreDelayed: {
+    base: "animate-gradient-more-delayed",
+    colors: "from-accent/10 via-zinc-900/50 to-accent/10",
+    hover: "group-hover:from-accent/20 group-hover:to-accent/20"
+  }
+} as const;
+
+export const ACCENT_HIGHLIGHT_CLASSES = {
+  container: "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000",
+  highlight: "absolute w-32 h-32 rounded-full bg-accent/10 blur-3xl animate-pulse"
+} as const;
+
+export const UI_SPACING = {
+  container: {
+    maxWidth: "max-w-2xl",
+    padding: "px-4 md:px-6",
+    gap: "gap-8 md:gap-12"
+  },
+  section: {
+    padding: "py-6 md:py-8",
+    gap: "gap-4 md:gap-6"
+  },
+  card: {
+    padding: "p-4 md:p-6",
+    gap: "gap-4"
+  },
+  grid: {
+    cols: "grid-cols-2 md:grid-cols-4",
+    gap: "gap-3"
+  }
+} as const;
+
+export const UI_CLASSES = {
+  sectionTitle: "text-xs font-medium text-muted-foreground tracking-wide uppercase",
+  card: "bg-zinc-900/50 rounded-md backdrop-blur-sm border border-white/5 transition-all duration-300 hover:shadow-lg hover:shadow-accent/5",
+  container: "container mx-auto",
+  instructionText: "text-xs text-muted-foreground leading-relaxed",
+  highlight: "text-accent font-medium"
 } as const; 
