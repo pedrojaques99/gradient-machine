@@ -29,7 +29,7 @@ export function PageLayout({ children }: { children: React.ReactNode }) {
   }, [dispatch]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col md:flex-row">
       <ColorSidebar
         colors={state.colorStops.map(stop => stop.color)}
         selectedColor={state.selectedColor}
@@ -42,7 +42,7 @@ export function PageLayout({ children }: { children: React.ReactNode }) {
         onImageUpload={handleImageUpload}
         hasImage={state.extractedColors.length > 0}
       />
-      <main className="pl-[60px] min-h-screen">
+      <main className="flex-1 min-h-screen w-full">
         {children}
       </main>
     </div>

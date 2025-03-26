@@ -12,7 +12,7 @@ interface UploadButtonProps {
   isLoading?: boolean;
   title?: string;
   imagePreview?: string;
-  variant?: 'default' | 'sidebar';
+  variant?: 'default' | 'sidebar' | 'icon';
   collapsed?: boolean;
   className?: string;
   id?: string;
@@ -205,7 +205,7 @@ export function UploadButton({
   };
 
   return (
-    <div className={className}>
+    <div className={cn("relative", className)}>
       <input
         ref={inputRef}
         type="file"
@@ -215,28 +215,52 @@ export function UploadButton({
         id={id}
         onClick={(e) => e.stopPropagation()}
       />
-      <div onClick={(e) => e.stopPropagation()}>
-        {renderContent()}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm"
+      <button
+        onClick={handleClick}
+        disabled={isLoading}
+        className={cn(
+          "relative flex items-center justify-center",
+          "transition-all duration-200",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          variant === 'default' && "w-full px-4 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50",
+          variant === 'sidebar' && "w-full px-3 py-2 rounded-md bg-gradient-to-r from-zinc-800/50 via-accent/10 to-zinc-800/30 hover:from-zinc-700/50 hover:via-accent/20 hover:to-zinc-700/30",
+          variant === 'icon' && "w-8 h-8 rounded-full bg-zinc-800/50 hover:bg-zinc-700/50",
+          className
+        )}
+      >
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : hasImage ? (
+          <Image className="h-4 w-4" />
+        ) : (
+          <Upload className="h-4 w-4" />
+        )}
+        {variant !== 'icon' && (
+          <span className="ml-2 text-sm">{title}</span>
+        )}
+      </button>
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm"
+          >
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setError(null);
+              }}
+              className="ml-auto hover:text-red-600 transition-colors"
             >
-              <span>{error}</span>
-              <button
-                type="button"
-                onClick={() => setError(null)}
-                className="ml-auto hover:text-red-600 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 
