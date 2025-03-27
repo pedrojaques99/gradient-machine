@@ -393,9 +393,12 @@ export function ColorDiscovery() {
       type: 'SET_DESIGN_SYSTEM', 
       payload: { ...state.designSystem, [roleId]: color }
     });
+
+    // Reset selection states
     setSelectedColor(null);
     setSelectedRole(null);
     setFocusedRole(null);
+    setIsSelecting(false);
 
     showToast(`${roleId.charAt(0).toUpperCase() + roleId.slice(1)} color updated!`, 'success');
   }, [dispatch, state.designSystem]);
@@ -406,6 +409,7 @@ export function ColorDiscovery() {
     setSelectedRole(null);
     setFocusedRole(null);
     setSelectionError(null);
+    setIsSelecting(false);
   }, []);
 
   // Update handleColorSelect to handle double-click
@@ -426,7 +430,7 @@ export function ColorDiscovery() {
       return;
     }
 
-    // Otherwise, just select the color without showing harmony
+    // Otherwise, just select the color
     setSelectedColor(color);
     setFocusedRole(null);
     setShowHarmony(false);

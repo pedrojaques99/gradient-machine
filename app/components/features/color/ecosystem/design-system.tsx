@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Image, Copy, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -343,6 +343,22 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
   const { state, dispatch } = useGradient();
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [displayedColors, setDisplayedColors] = useState<string[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Initialize displayed colors when component mounts or colors change
+  useEffect(() => {
+    setDisplayedColors(state.extractedColors.slice(0, 10));
+    setHasMore(state.extractedColors.length > 10);
+  }, [state.extractedColors]);
+
+  // Handle load more
+  const handleLoadMore = () => {
+    const currentLength = displayedColors.length;
+    const nextColors = state.extractedColors.slice(currentLength, currentLength + 10);
+    setDisplayedColors([...displayedColors, ...nextColors]);
+    setHasMore(currentLength + 10 < state.extractedColors.length);
+  };
 
   // Helper function to adjust color opacity
   const adjustOpacity = (hex: string, opacity: number) => {
@@ -448,18 +464,18 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
 
     return (
       <motion.div 
-        className="space-y-1.5"
+        className="space-y-2"
         animate={isRefreshing ? { scale: [1, 1.02, 1] } : {}}
         transition={{ duration: 0.2 }}
         key={`${color}-${isRefreshing}-${Date.now()}`}
       >
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="text-sm font-medium text-muted-foreground">{label}</div>
+        <div className="grid grid-cols-4 gap-2">
           {scales.map((scale, index) => (
             <UiTooltip key={`${scale}-${isRefreshing}-${index}-${Date.now()}`}>
               <TooltipTrigger asChild>
                 <motion.div 
-                  className="h-10 rounded-md cursor-pointer relative group shadow-sm hover:shadow-md transition-all"
+                  className="h-12 rounded-lg cursor-pointer relative group shadow-sm hover:shadow-md transition-all"
                   style={{ backgroundColor: scale }}
                   onClick={() => handleCopyColor(scale)}
                   animate={isRefreshing ? { 
@@ -468,14 +484,16 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
                   } : {}}
                   transition={{ 
                     duration: 0.3,
-                    delay: index * 0.05 // Stagger the animations
+                    delay: index * 0.05
                   }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-md">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
                     {copiedColor === scale ? (
-                      <Check className="w-3 h-3 text-white" />
+                      <Check className="w-4 h-4 text-white" />
                     ) : (
-                      <Copy className="w-3 h-3 text-white" />
+                      <Copy className="w-4 h-4 text-white" />
                     )}
                   </div>
                 </motion.div>
@@ -491,33 +509,46 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h3 className="text-sm font-medium">Color Scales</h3>
-          <p className="text-xs text-muted-foreground">Click to copy, drag to reorder</p>
+          <h3 className="text-lg font-medium">Color Scales</h3>
+          <p className="text-sm text-muted-foreground">Click to copy, drag to reorder</p>
         </div>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={handleRefreshScales}
           className="text-xs"
         >
-          <RefreshCw className="w-3 h-3 mr-1" />
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           Refresh
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {state.extractedColors.map((color, index) => (
-          <div key={color} className="relative group">
+      {/* Color Scales Grid */}
+      <motion.div 
+        className="grid gap-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {displayedColors.map((color, index) => (
+          <motion.div 
+            key={color} 
+            className="relative group"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: index * 0.05 }}
+          >
             <TooltipProvider>
               <ColorScale color={color} label={`Color ${index + 1}`} />
             </TooltipProvider>
             <Button
               variant="ghost"
               size="sm"
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500"
               onClick={() => onColorRemove(color)}
             >
               <svg
@@ -534,12 +565,46 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </Button>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      <PreviewPanel />
-      <BrandElements />
+      {/* Load More Button */}
+      {hasMore && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center pt-4"
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMore}
+            className="text-xs"
+          >
+            Load More Colors
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Preview Sections */}
+      <div className="space-y-8 pt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <PreviewPanel />
+        </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <BrandElements />
+        </motion.div>
+      </div>
     </div>
   );
 } 
