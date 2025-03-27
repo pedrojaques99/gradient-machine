@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGradient } from '@/app/contexts/GradientContext';
 import { UploadButton } from '@/app/components/shared/UploadButton';
@@ -26,6 +26,7 @@ import { ColorPicker } from '../shared/color-picker';
 import { ColorHarmony } from '../shared/color-harmony';
 import { ImageUploadPreview } from '@/app/components/shared/ImageUploadPreview';
 import { GRADIENT_CLASSES, ACCENT_HIGHLIGHT_CLASSES, UI_SPACING, UI_CLASSES } from '@/app/lib/constants';
+import { ColorSwatch } from '@/app/components/shared/ColorSwatch';
 
 type DesignSystem = Partial<Record<DesignSystemRoleId, string>>;
 
@@ -33,53 +34,8 @@ interface ColorSwatchProps {
   color: string;
   isSelected: boolean;
   onClick: () => void;
+  onLongPress?: () => void;
 }
-
-export const ColorSwatch = ({ color, isSelected, onClick }: ColorSwatchProps) => {
-  const tooltipContent = useMemo(() => (
-    <TooltipContent side="top" sideOffset={5}>
-      <p className="font-mono text-xs">{color}</p>
-    </TooltipContent>
-  ), [color]);
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onClick}
-            className={cn(
-              "group relative w-12 h-12 rounded-md transition-all",
-              "hover:scale-105 hover:shadow-md",
-              "border border-zinc-800/50",
-              isSelected && "ring-1 ring-accent ring-offset-1 ring-offset-zinc-950",
-              "overflow-hidden"
-            )}
-            style={{ backgroundColor: color }}
-            aria-label={`Color swatch: ${color}`}
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              {isSelected ? (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="bg-accent/90 text-black p-0.5 rounded-full"
-                >
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                </motion.div>
-              ) : (
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 absolute inset-0 flex items-center justify-center">
-                  <Paintbrush className="h-3 w-3 text-white" aria-hidden="true" />
-                </div>
-              )}
-            </div>
-          </button>
-        </TooltipTrigger>
-        {tooltipContent}
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
 
 interface ColorRoleProps {
   role: ColorRole;
@@ -93,7 +49,7 @@ interface ColorRoleProps {
 }
 
 const ColorRole = ({ 
-  role, 
+  role: currentRole, 
   assignedColor, 
   isHovered, 
   isSelecting,
@@ -213,9 +169,9 @@ const ColorRole = ({
       </div>
       <div className="flex-1 text-left space-y-0.5">
         <div className="text-sm font-medium flex items-center gap-2">
-          {role.name}
+          {currentRole.name}
         </div>
-        <div className="text-xs text-muted-foreground">{role.description}</div>
+        <div className="text-xs text-muted-foreground">{currentRole.description}</div>
       </div>
       {isSelecting && (
         <motion.div
@@ -236,6 +192,7 @@ interface ColorAnalysisProps {
 
 const ColorAnalysis = ({ color }: ColorAnalysisProps) => {
   const { state, dispatch } = useGradient();
+  const [showHarmony, setShowHarmony] = useState(false);
 
   if (!color) return null;
 
@@ -252,7 +209,17 @@ const ColorAnalysis = ({ color }: ColorAnalysisProps) => {
       className="space-y-6 p-4 bg-zinc-900/50 rounded-lg backdrop-blur-sm"
     >
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Color Analysis</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Color Analysis</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowHarmony(!showHarmony)}
+            className="text-xs text-muted-foreground hover:text-accent"
+          >
+            {showHarmony ? 'Hide Harmony' : 'Show Harmony'}
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <div
             className="w-8 h-8 rounded-full"
@@ -262,18 +229,26 @@ const ColorAnalysis = ({ color }: ColorAnalysisProps) => {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium">Color Harmony</h4>
-        <ColorHarmony
-          baseColor={color}
-          onSelect={(harmonicColor) => {
-            dispatch({
-              type: 'SET_EXTRACTED_COLORS',
-              payload: [...state.extractedColors, harmonicColor]
-            });
-          }}
-        />
-      </div>
+      {showHarmony && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="space-y-4"
+        >
+          <h4 className="text-sm font-medium">Color Harmony</h4>
+          <ColorHarmony
+            baseColor={color}
+            onSelect={(harmonicColor) => {
+              dispatch({
+                type: 'SET_EXTRACTED_COLORS',
+                payload: [...state.extractedColors, harmonicColor]
+              });
+              setShowHarmony(false);
+            }}
+          />
+        </motion.div>
+      )}
     </motion.div>
   );
 };
@@ -310,6 +285,63 @@ const showToast = (message: string, type: 'warning' | 'success' | 'error' = 'war
   }, 3000);
 };
 
+// Update the FocusModeIndicator component
+const FocusModeIndicator = ({ 
+  selectedColor, 
+  selectedRole, 
+  onCancel 
+}: { 
+  selectedColor: string | null;
+  selectedRole: DesignSystemRoleId | null;
+  onCancel: () => void;
+}) => {
+  if (!selectedColor && !selectedRole) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className={cn(
+        "fixed top-4 left-1/2 -translate-x-1/2",
+        "bg-zinc-900/95 backdrop-blur-sm",
+        "px-6 py-3 rounded-xl",
+        "border-2 border-accent/50",
+        "shadow-lg shadow-accent/10",
+        "z-50",
+        "flex items-center gap-4"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        {selectedColor && (
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-5 h-5 rounded-full ring-2 ring-accent/30"
+              style={{ backgroundColor: selectedColor }}
+            />
+            <span className="text-sm font-medium text-accent">Cor selecionada</span>
+          </div>
+        )}
+        {selectedColor && selectedRole && (
+          <ArrowRight className="h-4 w-4 text-accent/50" />
+        )}
+        {selectedRole && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium capitalize text-accent">{selectedRole}</span>
+            <span className="text-xs text-accent/50">função</span>
+          </div>
+        )}
+      </div>
+      <button
+        onClick={onCancel}
+        className="ml-4 p-1.5 hover:bg-accent/10 rounded-lg transition-colors"
+      >
+        <X className="h-4 w-4 text-accent/70" />
+      </button>
+    </motion.div>
+  );
+};
+
 export function ColorDiscovery() {
   const { state, dispatch } = useGradient();
   const [isExtracting, setIsExtracting] = useState(false);
@@ -317,6 +349,11 @@ export function ColorDiscovery() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<DesignSystemRoleId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<DesignSystemRoleId | null>(null);
+  const [focusedRole, setFocusedRole] = useState<DesignSystemRoleId | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [showHarmony, setShowHarmony] = useState(false);
 
   // Group colors by role (same logic as ColorSidebar)
   const roleColors = useMemo(() => {
@@ -338,34 +375,85 @@ export function ColorDiscovery() {
     return grouped;
   }, [state.extractedColors, state.designSystem]);
 
-  // Handle color selection for analysis only
-  const handleColorSelect = useCallback((color: string) => {
-    // Only use local state for color analysis
-    setSelectedColor(color === selectedColor ? null : color);
-  }, [selectedColor]);
-
-  // Handle role assignment
-  const handleRoleAssign = useCallback((roleId: DesignSystemRoleId) => {
-    if (!selectedColor) return;
+  // Move handleRoleAssign before handleColorSelect and handleRoleSelect
+  const handleRoleAssign = useCallback((roleId: DesignSystemRoleId, color: string) => {
+    if (!color) return;
 
     // Check if color is already assigned to another role
-    const currentRole = Object.entries(state.designSystem)
-      .find(([_, value]) => value === selectedColor)?.[0];
+    const existingRole = Object.entries(state.designSystem)
+      .find(([_, value]) => value === color)?.[0];
 
-    if (currentRole && currentRole !== roleId) {
-      showToast(`This color is already assigned to ${currentRole}. Please choose a different color.`, 'warning');
+    if (existingRole && existingRole !== roleId) {
+      showToast(`This color is already assigned to ${existingRole}. Please choose a different color.`, 'warning');
       return;
     }
 
-    // Update design system and clear selection
+    // Update design system
     dispatch({ 
       type: 'SET_DESIGN_SYSTEM', 
-      payload: { ...state.designSystem, [roleId]: selectedColor }
+      payload: { ...state.designSystem, [roleId]: color }
     });
     setSelectedColor(null);
+    setSelectedRole(null);
+    setFocusedRole(null);
 
     showToast(`${roleId.charAt(0).toUpperCase() + roleId.slice(1)} color updated!`, 'success');
-  }, [dispatch, selectedColor, state.designSystem]);
+  }, [dispatch, state.designSystem]);
+
+  // Add cancel handler
+  const handleCancel = useCallback(() => {
+    setSelectedColor(null);
+    setSelectedRole(null);
+    setFocusedRole(null);
+    setSelectionError(null);
+  }, []);
+
+  // Update handleColorSelect to handle double-click
+  const handleColorSelect = useCallback((color: string) => {
+    setIsSelecting(true);
+    setSelectionError(null);
+
+    // If clicking the same color that's already selected, exit focus mode
+    if (selectedColor === color) {
+      handleCancel();
+      return;
+    }
+
+    // If a role is already selected, assign the color to that role
+    if (selectedRole) {
+      handleRoleAssign(selectedRole, color);
+      setIsSelecting(false);
+      return;
+    }
+
+    // Otherwise, just select the color without showing harmony
+    setSelectedColor(color);
+    setFocusedRole(null);
+    setShowHarmony(false);
+  }, [selectedColor, selectedRole, handleRoleAssign, handleCancel]);
+
+  // Update handleRoleSelect to handle double-click
+  const handleRoleSelect = useCallback((roleId: DesignSystemRoleId) => {
+    setIsSelecting(true);
+    setSelectionError(null);
+
+    // If clicking the same role that's already selected, exit focus mode
+    if (selectedRole === roleId) {
+      handleCancel();
+      return;
+    }
+
+    // If a color is already selected, assign it to this role
+    if (selectedColor) {
+      handleRoleAssign(roleId, selectedColor);
+      setIsSelecting(false);
+      return;
+    }
+
+    // Otherwise, enter focus mode for color selection
+    setSelectedRole(roleId);
+    setFocusedRole(roleId);
+  }, [selectedColor, selectedRole, handleRoleAssign, handleCancel]);
 
   // Handle color change
   const handleColorChange = useCallback((color: string, roleId: DesignSystemRoleId) => {
@@ -423,6 +511,26 @@ export function ColorDiscovery() {
       const colorMap = new Map<string, number>();
       const totalPixels = pixels.length / 4;
 
+      // Enhanced color quantization
+      const quantizeColor = (r: number, g: number, b: number) => {
+        // Use perceptually uniform quantization
+        const quantizedR = Math.round(r / 16) * 16;
+        const quantizedG = Math.round(g / 16) * 16;
+        const quantizedB = Math.round(b / 16) * 16;
+        return `rgb(${quantizedR},${quantizedG},${quantizedB})`;
+      };
+
+      // Calculate perceptual color distance
+      const colorDistance = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) => {
+        // Convert to LAB color space for better perceptual distance
+        const lab1 = rgbToLab(r1, g1, b1);
+        const lab2 = rgbToLab(r2, g2, b2);
+        
+        // Calculate Delta E (CIE 2000)
+        return deltaE(lab1, lab2);
+      };
+
+      // Process pixels with enhanced clustering
       for (let i = 0; i < pixels.length; i += chunkSize * 4) {
         const end = Math.min(i + chunkSize * 4, pixels.length);
         for (let j = i; j < end; j += 4) {
@@ -434,13 +542,23 @@ export function ColorDiscovery() {
           // Skip transparent pixels
           if (a < 128) continue;
 
-          // Quantize colors to reduce unique values
-          const quantizedR = Math.round(r / 8) * 8;
-          const quantizedG = Math.round(g / 8) * 8;
-          const quantizedB = Math.round(b / 8) * 8;
-          const color = `rgb(${quantizedR},${quantizedG},${quantizedB})`;
+          // Quantize color
+          const color = quantizeColor(r, g, b);
 
-          colorMap.set(color, (colorMap.get(color) || 0) + 1);
+          // Check if similar color exists
+          let foundSimilar = false;
+          for (const [existingColor, count] of colorMap.entries()) {
+            const [er, eg, eb] = existingColor.match(/\d+/g)!.map(Number);
+            if (colorDistance(r, g, b, er, eg, eb) < 10) {
+              colorMap.set(existingColor, count + 1);
+              foundSimilar = true;
+              break;
+            }
+          }
+
+          if (!foundSimilar) {
+            colorMap.set(color, (colorMap.get(color) || 0) + 1);
+          }
         }
       }
 
@@ -452,17 +570,17 @@ export function ColorDiscovery() {
           percentage: (count / totalPixels) * 100
         }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-        .map(c => c.color); // Return just the color strings
+        .slice(0, 20) // Extract more colors initially
+        .map(c => c.color);
 
       // Update state with extracted colors
       dispatch({ type: 'SET_EXTRACTED_COLORS', payload: colors });
       setImagePreview(img.src);
       
-      return colors; // Return the colors array
+      return colors;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract colors');
-      return []; // Return empty array on error
+      return [];
     } finally {
       setIsExtracting(false);
     }
@@ -575,8 +693,59 @@ export function ColorDiscovery() {
     return generateColorVariations(selectedColor);
   }, [selectedColor]);
 
+  // Helper functions for color space conversion
+  function rgbToLab(r: number, g: number, b: number) {
+    // Convert RGB to XYZ
+    r = r / 255;
+    g = g / 255;
+    b = b / 255;
+
+    r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+    r = r * 100;
+    g = g * 100;
+    b = b * 100;
+
+    let x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    let y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    let z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+    // Convert XYZ to LAB
+    x = x / 95.047;
+    y = y / 100.000;
+    z = z / 108.883;
+
+    x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + 16/116;
+    y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
+    z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + 16/116;
+
+    return {
+      l: (116 * y) - 16,
+      a: 500 * (x - y),
+      b: 200 * (y - z)
+    };
+  }
+
+  function deltaE(lab1: { l: number; a: number; b: number }, lab2: { l: number; a: number; b: number }) {
+    // Simplified Delta E calculation (CIE 2000)
+    const deltaL = lab1.l - lab2.l;
+    const deltaA = lab1.a - lab2.a;
+    const deltaB = lab1.b - lab2.b;
+
+    return Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
+  }
+
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* Add FocusModeIndicator */}
+      <FocusModeIndicator
+        selectedColor={selectedColor}
+        selectedRole={selectedRole}
+        onCancel={handleCancel}
+      />
+
       {/* Gradient Background */}
       {!imagePreview && (
         <div className="fixed inset-0 -z-10 group">
@@ -690,15 +859,15 @@ export function ColorDiscovery() {
                 <div className="w-full space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className={UI_CLASSES.sectionTitle}>Cores extraídas</h2>
-                    <ColorLimitIndicator />
                   </div>
-                  <div className="grid grid-cols-10 gap-2">
+                  <div className="grid grid-cols-8 gap-2">
                     {state.extractedColors.map((color, index) => (
                       <ColorSwatch
                         key={color + index}
                         color={color}
                         isSelected={selectedColor === color}
                         onClick={() => handleColorSelect(color)}
+                        size='lg'
                       />
                     ))}
                   </div>
@@ -732,21 +901,133 @@ export function ColorDiscovery() {
                   </motion.div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {COLOR_ROLES.map((role) => (
-                    <ColorRole
-                      key={role.id}
-                      role={role}
-                      assignedColor={state.designSystem[role.id]}
-                      isHovered={hoveredRole === role.id}
-                      isSelecting={!!selectedColor}
-                      onHover={(isHovered) => setHoveredRole(isHovered ? role.id : null)}
-                      onClick={() => handleRoleAssign(role.id)}
-                      onRemove={() => handleColorRemove(role.id)}
-                      onColorChange={(color) => handleColorChange(color, role.id)}
-                    />
-                  ))}
-                </div>
+                {/* Role Sections */}
+                {COLOR_ROLES.map((currentRole) => (
+                  <div 
+                    key={currentRole.id} 
+                    className="space-y-3"
+                    onFocus={() => setFocusedRole(currentRole.id)}
+                    onBlur={() => setFocusedRole(null)}
+                  >
+                    <motion.div
+                      className={cn(
+                        "group relative overflow-hidden rounded-xl",
+                        "bg-zinc-900/50 hover:bg-zinc-800/50",
+                        "border border-zinc-800/50",
+                        "transition-all duration-200",
+                        selectedRole === currentRole.id && "border-accent/50 bg-accent/5",
+                        focusedRole === currentRole.id && "border-accent/30 bg-accent/5",
+                        "hover:border-accent/30 hover:bg-accent/5",
+                        "cursor-pointer"
+                      )}
+                      onClick={() => handleRoleSelect(currentRole.id)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                    >
+                      {/* Background highlight effect */}
+                      <motion.div
+                        className={cn(
+                          "absolute inset-0 bg-accent/5 opacity-0",
+                          "transition-opacity duration-200",
+                          "group-hover:opacity-100",
+                          (selectedRole === currentRole.id || focusedRole === currentRole.id) && "opacity-100"
+                        )}
+                      />
+
+                      {/* Content */}
+                      <div className="relative p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {/* Role icon */}
+                            <div className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center",
+                              "bg-zinc-800/50 group-hover:bg-accent/10",
+                              "transition-colors duration-200",
+                              (selectedRole === currentRole.id || focusedRole === currentRole.id) && "bg-accent/10"
+                            )}>
+                              {state.designSystem[currentRole.id] ? (
+                                <div 
+                                  className="w-5 h-5 rounded-full ring-2 ring-accent/30"
+                                  style={{ backgroundColor: state.designSystem[currentRole.id] }}
+                                />
+                              ) : (
+                                <Paintbrush className={cn(
+                                  "w-5 h-5",
+                                  "text-zinc-400 group-hover:text-accent",
+                                  "transition-colors duration-200",
+                                  (selectedRole === currentRole.id || focusedRole === currentRole.id) && "text-accent"
+                                )} />
+                              )}
+                            </div>
+
+                            {/* Role info */}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-sm font-medium capitalize",
+                                  "text-zinc-200 group-hover:text-accent",
+                                  "transition-colors duration-200",
+                                  (selectedRole === currentRole.id || focusedRole === currentRole.id) && "text-accent"
+                                )}>
+                                  {currentRole.name}
+                                </span>
+                                {selectedRole === currentRole.id && (
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="w-2 h-2 rounded-full bg-accent"
+                                  />
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-400 group-hover:text-zinc-300">
+                                {currentRole.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Status indicators and color thumbnails */}
+                          <div className="flex items-center gap-3">
+                            {/* Color thumbnails */}
+                            {state.designSystem[currentRole.id] && (
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-6 h-6 rounded-lg ring-2 ring-accent/30"
+                                  style={{ backgroundColor: state.designSystem[currentRole.id] }}
+                                />
+                                <span className="text-xs font-mono text-accent/70">
+                                  {state.designSystem[currentRole.id]}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Status messages */}
+                            <div className="flex items-center gap-2">
+                              {focusedRole === currentRole.id && (
+                                <motion.div
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  className="flex items-center gap-1.5 text-xs text-white/70"
+                                >
+                                  <span>Selecione uma cor</span>
+                                  <ArrowRight className="w-3.5 h-3.5 text-white" />
+                                </motion.div>
+                              )}
+                              {selectedColor && selectedRole === currentRole.id && (
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  className="text-xs text-accent/70"
+                                >
+                                  Clique para confirmar
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                ))}
               </section>
 
               {/* Color Analysis (shown when a color is selected) */}

@@ -16,6 +16,7 @@ interface GradientState {
   handleSize: number;
   gradientSize: number;
   maxColors: number;
+  maxExtractedColors: number;
   gradients: string[];
   gradientSettings: {
     texture: string;
@@ -71,7 +72,8 @@ const initialState: GradientState = {
   canvasHeight: 400,
   handleSize: 16,
   gradientSize: 100,
-  maxColors: 10,
+  maxColors: 5,
+  maxExtractedColors: 20,
   gradients: [],
   gradientSettings: {
     texture: 'smooth',
@@ -97,8 +99,8 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
       const colors = action.payload;
       if (colors.length === 0) return state;
 
-      // Ensure we don't exceed max colors
-      const limitedColors = colors.slice(0, state.maxColors);
+      // Use maxExtractedColors for extracted colors
+      const limitedColors = colors.slice(0, state.maxExtractedColors);
 
       // Automatically update design system when new colors are extracted
       const designSystem = {
@@ -109,12 +111,14 @@ function gradientReducer(state: GradientState, action: GradientAction): Gradient
         text: state.designSystem.text || '#FFFFFF'
       };
       
-      // Create color stops from extracted colors
-      const colorStops = limitedColors.map((color, index) => ({
-        id: index.toString(),
-        color,
-        position: index / Math.max(1, limitedColors.length - 1)
-      }));
+      // Create color stops from extracted colors, limited by maxColors
+      const colorStops = limitedColors
+        .slice(0, state.maxColors)
+        .map((color, index) => ({
+          id: index.toString(),
+          color,
+          position: index / Math.max(1, state.maxColors - 1)
+        }));
 
       return {
         ...state,

@@ -29,45 +29,73 @@ export interface ColorInfo {
   index: number;
 }
 
-// Add memoization for color calculations
+// Add cache management
+const MAX_CACHE_SIZE = 1000;
 const colorCache = new Map<string, ColorProperties>();
 
-export function getColorProperties(color: string): ColorProperties | null {
-  // Check cache first
-  if (colorCache.has(color)) {
-    return colorCache.get(color)!;
-  }
-
-  const rgb = hexToRgb(color);
-  if (!rgb) return null;
-
-  const { r, g, b } = rgb;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
-  const c = (max - min) / 255;
-
-  const properties = {
-    brightness: l / 255,
-    saturation: s,
-    contrast: c,
-    hex: color,
-    rgb
-  };
-
-  // Cache the result
-  colorCache.set(color, properties);
-  return properties;
+export function clearColorCache() {
+  colorCache.clear();
 }
 
-export function assignColorRole(color: string, usedRoles: Set<string> = new Set()): DesignSystemRoleId | null {
+export function invalidateColorCache(color: string) {
+  colorCache.delete(color);
+}
+
+export function getColorProperties(color: string): ColorProperties | null {
+  try {
+    // Check cache first
+    if (colorCache.has(color)) {
+      return colorCache.get(color)!;
+    }
+
+    const rgb = hexToRgb(color);
+    if (!rgb) return null;
+
+    const { r, g, b } = rgb;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+    const c = (max - min) / 255;
+
+    const properties = {
+      brightness: l / 255,
+      saturation: s,
+      contrast: c,
+      hex: color,
+      rgb
+    };
+
+    // Manage cache size
+    if (colorCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = colorCache.keys().next().value;
+      if (firstKey) {
+        colorCache.delete(firstKey);
+      }
+    }
+
+    // Cache the result
+    colorCache.set(color, properties);
+    return properties;
+  } catch (error) {
+    console.error('Error calculating color properties:', error);
+    return null;
+  }
+}
+
+// Improve role assignment with validation
+export function assignColorRole(color: string, usedRoles: Set<string> = new Set()): { roleId: DesignSystemRoleId | null; reason?: string } {
   const properties = getColorProperties(color);
-  if (!properties) return null;
+  if (!properties) {
+    return { roleId: null, reason: 'Invalid color properties' };
+  }
 
-  for (const role of COLOR_ROLES) {
-    if (usedRoles.has(role.id)) continue;
+  const availableRoles = COLOR_ROLES.filter(role => !usedRoles.has(role.id));
+  if (availableRoles.length === 0) {
+    return { roleId: null, reason: 'No available roles' };
+  }
 
+  for (const role of availableRoles) {
     const { brightness, saturation, contrast } = properties;
     const { criteria } = role;
 
@@ -79,15 +107,78 @@ export function assignColorRole(color: string, usedRoles: Set<string> = new Set(
       (contrast >= criteria.contrast[0] && contrast <= criteria.contrast[1]);
 
     if (matchesBrightness && matchesSaturation && matchesContrast) {
-      return role.id;
+      return { roleId: role.id };
     }
   }
 
-  return null;
+  return { 
+    roleId: null, 
+    reason: 'Color does not match any role criteria' 
+  };
 }
 
-export function validateColor(color: string): boolean {
-  return /^#[0-9A-Fa-f]{6}$/.test(color);
+// Improve color validation
+export function validateColor(color: string): { isValid: boolean; reason?: string } {
+  if (!color) {
+    return { isValid: false, reason: 'Color is required' };
+  }
+
+  if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    return { isValid: false, reason: 'Invalid color format. Use hex format (e.g., #FF0000)' };
+  }
+
+  const properties = getColorProperties(color);
+  if (!properties) {
+    return { isValid: false, reason: 'Invalid color properties' };
+  }
+
+  return { isValid: true };
+}
+
+// Add color role validation with feedback
+export function validateColorForRole(color: string, roleId: DesignSystemRoleId): { isValid: boolean; reason?: string } {
+  const role = COLOR_ROLES.find(r => r.id === roleId);
+  if (!role) {
+    return { isValid: false, reason: 'Invalid role' };
+  }
+
+  const properties = getColorProperties(color);
+  if (!properties) {
+    return { isValid: false, reason: 'Invalid color properties' };
+  }
+
+  const { brightness, saturation, contrast } = properties;
+  const { criteria } = role;
+
+  const matchesBrightness = !criteria.brightness || 
+    (brightness >= criteria.brightness[0] && brightness <= criteria.brightness[1]);
+  const matchesSaturation = !criteria.saturation || 
+    (saturation >= criteria.saturation[0] && saturation <= criteria.saturation[1]);
+  const matchesContrast = !criteria.contrast || 
+    (contrast >= criteria.contrast[0] && contrast <= criteria.contrast[1]);
+
+  if (!matchesBrightness) {
+    return { 
+      isValid: false, 
+      reason: `Brightness (${brightness.toFixed(2)}) outside range [${criteria.brightness![0]}, ${criteria.brightness![1]}]` 
+    };
+  }
+
+  if (!matchesSaturation) {
+    return { 
+      isValid: false, 
+      reason: `Saturation (${saturation.toFixed(2)}) outside range [${criteria.saturation![0]}, ${criteria.saturation![1]}]` 
+    };
+  }
+
+  if (!matchesContrast) {
+    return { 
+      isValid: false, 
+      reason: `Contrast (${contrast.toFixed(2)}) outside range [${criteria.contrast![0]}, ${criteria.contrast![1]}]` 
+    };
+  }
+
+  return { isValid: true };
 }
 
 // Add type safety for color variations
