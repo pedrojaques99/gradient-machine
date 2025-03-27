@@ -5,18 +5,14 @@ import { GradientStudio } from '@/app/components/features/color/gradient/gradien
 import { Navigation } from '@/app/components/shared/Navigation';
 import { useGradient } from '@/app/contexts/GradientContext';
 
-export function GradientStudioPage() {
+export default function GradientStudioPage() {
   const { dispatch } = useGradient();
-
-  const handleBack = () => {
-    dispatch({ type: 'SET_INTERFACE', payload: 'ecosystem' });
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation 
-        title="Gradient Machine"
-        backTo="/design-system"
+        title="Gradient Studio"
+        subtitle="Create and customize beautiful gradients"
         hideNext={true}
       />
       <motion.div

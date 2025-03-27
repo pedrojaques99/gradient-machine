@@ -4,8 +4,18 @@ import { Card } from '@/app/components/ui/card';
 import { Label } from '@/app/components/ui/label';
 import { useGradient } from '@/app/contexts/GradientContext';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Image, Copy, Check, RefreshCw } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, Tooltip as RechartsTooltip } from 'recharts';
+import { 
+  Image, 
+  Copy, 
+  Check, 
+  RefreshCw, 
+  Palette, 
+  LineChart, 
+  Wand2, 
+  ArrowRight,
+  X
+} from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { useState, useEffect } from 'react';
 import {
@@ -13,7 +23,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Tooltip,
 } from "@/app/components/ui/tooltip";
+import { ChevronDown } from 'lucide-react';
 
 // Sample data for the chart
 const data = [
@@ -143,7 +155,7 @@ function PreviewPanel() {
                   width={30}
                   tickMargin={8}
                 />
-                <Tooltip 
+                <RechartsTooltip 
                   cursor={{ fill: state.designSystem.secondary + '10' }}
                   contentStyle={{ 
                     backgroundColor: state.designSystem.background,
@@ -221,6 +233,107 @@ function PreviewPanel() {
         </div>
       </Card>
     </div>
+  );
+}
+
+// Add BentoGrid component after PreviewPanel and before BrandElements
+function BentoGrid() {
+  const { state } = useGradient();
+
+  return (
+    <Card className="p-6 hover:shadow-md transition-all duration-300">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Color Showcase</Label>
+          <div className="text-xs text-muted-foreground">Bento Grid</div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-4 auto-rows-[120px]">
+          {/* Feature Card */}
+          <motion.div
+            className="col-span-2 row-span-2 rounded-xl p-6 relative overflow-hidden group"
+            style={{ 
+              background: `linear-gradient(135deg, ${state.designSystem.primary}, ${state.designSystem.accent})`
+            }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/50" />
+            <div className="relative h-full flex flex-col justify-between">
+              <div className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                <Palette className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-white mb-2">Color System</h3>
+                <p className="text-sm text-white/80">Beautiful and accessible color combinations</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Secondary Card */}
+          <motion.div
+            className="rounded-xl p-4 relative overflow-hidden group"
+            style={{ backgroundColor: state.designSystem.secondary }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="h-full flex flex-col justify-between">
+              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                <LineChart className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-sm text-white/90">Analytics</p>
+            </div>
+          </motion.div>
+
+          {/* Accent Card */}
+          <motion.div
+            className="rounded-xl p-4 relative overflow-hidden group"
+            style={{ backgroundColor: state.designSystem.accent }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="h-full flex flex-col justify-between">
+              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                <Wand2 className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-sm text-white/90">Magic</p>
+            </div>
+          </motion.div>
+
+          {/* Background Card */}
+          <motion.div
+            className="col-span-2 rounded-xl p-4 relative overflow-hidden group"
+            style={{ 
+              backgroundColor: state.designSystem.background,
+              border: `1px solid ${state.designSystem.secondary}20`
+            }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="h-full flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-white/5 backdrop-blur-sm flex items-center justify-center">
+                <Image className="w-5 h-5" style={{ color: state.designSystem.accent }} />
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-1" style={{ color: state.designSystem.text }}>Media</h4>
+                <p className="text-xs" style={{ color: `${state.designSystem.text}80` }}>Visual content</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Primary Small Card */}
+          <motion.div
+            className="rounded-xl relative overflow-hidden group"
+            style={{ backgroundColor: state.designSystem.primary }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20" />
+            <div className="relative h-full p-4 flex flex-col justify-between">
+              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                <ArrowRight className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-sm text-white/90">Next</p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -431,7 +544,6 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
 
   const ColorScale = ({ color, label }: { color: string; label: string }) => {
     const generateScales = (baseColor: string) => {
-      // If the color is in rgba format, parse it
       if (baseColor.startsWith('rgba')) {
         return [
           baseColor,
@@ -440,8 +552,6 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
           baseColor.replace('rgba', 'rgba').replace(/[\d.]+\)$/g, '0.4)')
         ];
       }
-
-      // For hex colors
       return [
         baseColor,
         adjustOpacity(baseColor, 0.8),
@@ -450,7 +560,6 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
       ];
     };
 
-    // Generate scales with a random offset to ensure new values on refresh
     const randomOffset = isRefreshing ? Math.random() * 0.1 : 0;
     const scales = generateScales(color).map(scale => {
       if (scale.startsWith('rgba')) {
@@ -464,44 +573,77 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
 
     return (
       <motion.div 
-        className="space-y-2"
-        animate={isRefreshing ? { scale: [1, 1.02, 1] } : {}}
+        className="relative group rounded-xl bg-zinc-900/50 hover:bg-zinc-800/50 p-4 transition-all duration-200"
+        animate={isRefreshing ? { scale: [1, 1.01, 1] } : {}}
         transition={{ duration: 0.2 }}
         key={`${color}-${isRefreshing}-${Date.now()}`}
       >
-        <div className="text-sm font-medium text-muted-foreground">{label}</div>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-6 h-6 rounded-md shadow-sm ring-1 ring-white/10" 
+              style={{ backgroundColor: color }}
+            />
+            <span className="text-sm font-medium text-zinc-300">{label}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 h-8 w-8 p-0"
+            onClick={() => onColorRemove(color)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Color Scales */}
         <div className="grid grid-cols-4 gap-2">
           {scales.map((scale, index) => (
-            <UiTooltip key={`${scale}-${isRefreshing}-${index}-${Date.now()}`}>
-              <TooltipTrigger asChild>
-                <motion.div 
-                  className="h-12 rounded-lg cursor-pointer relative group shadow-sm hover:shadow-md transition-all"
-                  style={{ backgroundColor: scale }}
-                  onClick={() => handleCopyColor(scale)}
-                  animate={isRefreshing ? { 
-                    scale: [1, 1.05, 1],
-                    opacity: [1, 0.8, 1]
-                  } : {}}
-                  transition={{ 
-                    duration: 0.3,
-                    delay: index * 0.05
-                  }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
-                    {copiedColor === scale ? (
-                      <Check className="w-4 h-4 text-white" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-white" />
-                    )}
-                  </div>
-                </motion.div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">Click to copy {scale}</p>
-              </TooltipContent>
-            </UiTooltip>
+            <TooltipProvider key={`${scale}-${isRefreshing}-${index}-${Date.now()}`}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.button 
+                    className="relative group/scale h-14 rounded-lg cursor-pointer overflow-hidden ring-1 ring-white/5"
+                    style={{ backgroundColor: scale }}
+                    onClick={() => handleCopyColor(scale)}
+                    animate={isRefreshing ? { 
+                      scale: [1, 1.02, 1],
+                      opacity: [1, 0.8, 1]
+                    } : {}}
+                    transition={{ 
+                      duration: 0.2,
+                      delay: index * 0.05
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-black/5 opacity-0 group-hover/scale:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-black/20 backdrop-blur-sm rounded-md p-1 opacity-0 group-hover/scale:opacity-100 transition-all duration-200 scale-75 group-hover/scale:scale-100">
+                        {copiedColor === scale ? (
+                          <Check className="w-3 h-3 text-white" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                    </div>
+                  </motion.button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="select-none">
+                  <p className="text-xs font-mono">{scale}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ))}
+        </div>
+
+        {/* Opacity Labels */}
+        <div className="flex justify-between mt-2 px-1">
+          {[100, 80, 60, 40].map((opacity, index) => (
+            <span key={opacity} className="text-[10px] text-zinc-500 font-medium">
+              {opacity}%
+            </span>
           ))}
         </div>
       </motion.div>
@@ -529,7 +671,7 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
 
       {/* Color Scales Grid */}
       <motion.div 
-        className="grid gap-6"
+        className="grid gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -537,34 +679,12 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
         {displayedColors.map((color, index) => (
           <motion.div 
             key={color} 
-            className="relative group"
+            className="relative"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: index * 0.05 }}
           >
-            <TooltipProvider>
-              <ColorScale color={color} label={`Color ${index + 1}`} />
-            </TooltipProvider>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500"
-              onClick={() => onColorRemove(color)}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </Button>
+            <ColorScale color={color} label={`Color ${index + 1}`} />
           </motion.div>
         ))}
       </motion.div>
@@ -574,27 +694,30 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center pt-4"
+          className="flex justify-center"
         >
           <Button
             variant="outline"
             size="sm"
             onClick={handleLoadMore}
-            className="text-xs"
+            className="text-xs group transition-all duration-200 hover:bg-accent/5"
           >
-            Load More Colors
+            <span>Load More Colors</span>
+            <ChevronDown className="w-3.5 h-3.5 ml-1.5 group-hover:translate-y-0.5 transition-transform" />
           </Button>
         </motion.div>
       )}
 
-      {/* Preview Sections */}
-      <div className="space-y-8 pt-8">
+      {/* Preview Sections in 2-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
+          className="space-y-8"
         >
           <PreviewPanel />
+          <BrandElements />
         </motion.div>
         
         <motion.div
@@ -602,7 +725,7 @@ export function DesignSystem({ onColorRemove }: DesignSystemProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
         >
-          <BrandElements />
+          <BentoGrid />
         </motion.div>
       </div>
     </div>

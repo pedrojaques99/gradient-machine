@@ -665,40 +665,144 @@ export function ColorSidebar({
 
       {/* Bottom Navigation */}
       <div className={cn(
-        "flex items-center justify-between h-12 px-3",
-        "border-t border-zinc-800/50"
+        "flex items-center justify-between px-2 py-2",
+        "border-t border-zinc-800/50",
+        "bg-background/50 backdrop-blur-sm"
       )}>
         <AnimatePresence>
-          {isExpanded && (
+          {isExpanded ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-4 w-full"
+              className="grid grid-cols-3 gap-1 w-full"
             >
-              <button
-                onClick={() => onImageUpload?.(new File([], 'image.png'))}
-                className="flex items-center gap-2 text-sm hover:text-accent transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload Image</span>
-              </button>
-              <div className="h-4 w-px bg-zinc-800/50" />
-              <button
-                onClick={() => router.push('/gradient-studio')}
-                className="flex items-center gap-2 text-sm hover:text-accent transition-colors"
-              >
-                <LineChart className="h-4 w-4" />
-                <span>Gradient Machine</span>
-              </button>
-              <div className="h-4 w-px bg-zinc-800/50" />
-              <button
-                onClick={() => router.push('/design-system')}
-                className="flex items-center gap-2 text-sm hover:text-accent transition-colors"
-              >
-                <Wand2 className="h-4 w-4" />
-                <span>Color System</span>
-              </button>
+              {/* Upload Button */}
+              <UploadButton
+                variant="sidebar"
+                onImageUpload={onImageUpload}
+                className={cn(
+                  "flex items-center gap-2 p-2 rounded-lg text-sm",
+                  "hover:bg-accent/10 hover:text-accent",
+                  "transition-all duration-200",
+                  "group"
+                )}
+              />
+
+              {/* Gradient Studio Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => router.push('/gradient-studio')}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg text-sm",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200",
+                        "group"
+                      )}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <LineChart className="h-4 w-4 group-hover:text-accent transition-colors" />
+                      <span className="text-xs font-medium">Gradient</span>
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Open Gradient Studio</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Color System Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => router.push('/design-system')}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg text-sm",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200",
+                        "group"
+                      )}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Wand2 className="h-4 w-4 group-hover:text-accent transition-colors" />
+                      <span className="text-xs font-medium">System</span>
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Open Color System</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col gap-2"
+            >
+              {/* Collapsed Upload Button */}
+              <UploadButton
+                variant="sidebar"
+                collapsed={true}
+                onImageUpload={onImageUpload}
+                className={cn(
+                  "p-2 rounded-lg",
+                  "hover:bg-accent/10 hover:text-accent",
+                  "transition-all duration-200"
+                )}
+              />
+
+              {/* Collapsed Gradient Studio Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => router.push('/gradient-studio')}
+                      className={cn(
+                        "p-2 rounded-lg",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200"
+                      )}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <LineChart className="h-4 w-4" />
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">Open Gradient Studio</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Collapsed Color System Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => router.push('/design-system')}
+                      className={cn(
+                        "p-2 rounded-lg",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200"
+                      )}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Wand2 className="h-4 w-4" />
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">Open Color System</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </motion.div>
           )}
         </AnimatePresence>

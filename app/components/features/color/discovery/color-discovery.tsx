@@ -780,7 +780,10 @@ export function ColorDiscovery() {
         </div>
       )}
 
-      <Navigation title="[Colorfy]®" onNext={handleInterfaceChange} />
+      <Navigation 
+        title="[Colorfy]®" 
+        hideNext={true}
+      />
       
       <main className={cn(
         "flex-1 flex flex-col bg-background",

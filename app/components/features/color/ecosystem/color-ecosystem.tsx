@@ -80,7 +80,7 @@ export function ColorEcosystem() {
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation 
         title="System"
-        onBack={handleBack}
+        backTo="/"
         onNext={handleOpenStudio}
       />
       <motion.div
