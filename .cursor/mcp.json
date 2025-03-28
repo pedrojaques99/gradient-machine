@@ -1,0 +1,17 @@
+{
+    "mcpServers": {
+      "brave-search": {
+        "command": "cmd",
+        "args": [
+          "/c",
+          "npx",
+          "-y",
+          "@smithery/cli@latest",
+          "run",
+          "@smithery-ai/brave-search",
+          "--key",
+          "1baf19ea-781c-4efd-a23a-4cae660fe399"
+        ]
+      }
+    }
+  }

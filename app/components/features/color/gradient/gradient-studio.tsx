@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/app/components/ui/button';
 import { GradientCanvas } from '../shared/gradient-canvas';
 import { useGradient } from '@/app/contexts/GradientContext';
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import { ColorStop, GradientStyle } from '@/app/lib/utils/colors';
-import { Download, FileJson, FileCode, FileImage } from 'lucide-react';
+import { Download, FileJson, FileCode, FileImage, Wand2, RefreshCw } from 'lucide-react';
 import { Input } from '@/app/components/ui/input';
 
 interface GradientSettings {
@@ -24,6 +24,7 @@ interface GradientControlsProps {
   settings: GradientSettings;
   onSettingsChange: (settings: GradientSettings) => void;
   onExport: (type: 'json' | 'css' | 'svg') => void;
+  onRandomize: () => void;
 }
 
 // Separate control components for better performance
@@ -154,10 +155,23 @@ const ExportButtons = memo(({ onExport }: { onExport: (type: 'json' | 'css' | 's
   </div>
 ));
 
-function GradientControls({ settings, onSettingsChange, onExport }: GradientControlsProps) {
+function GradientControls({ settings, onSettingsChange, onExport, onRandomize }: GradientControlsProps) {
   return (
     <Card className="p-3 sm:p-6 w-full">
       <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-base sm:text-lg font-semibold">Gradient Controls</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRandomize}
+            className="text-xs flex items-center gap-1.5 group"
+          >
+            <Wand2 className="w-3.5 h-3.5 group-hover:text-accent transition-colors" />
+            <span>Random</span>
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-3 sm:space-y-4">
             <GradientStyleControl
@@ -240,6 +254,54 @@ export function GradientStudio() {
     }
   }, [settings.texture, settings.intensity, dispatch]);
 
+  // Add randomize function
+  const handleRandomize = useCallback(() => {
+    const styles: GradientStyle[] = ['linear', 'radial', 'conic', 'diagonal', 'fluid', 'soft'];
+    const textures: ('smooth' | 'noise' | 'grain')[] = ['smooth', 'noise', 'grain'];
+    
+    // Get available colors from state
+    const availableColors = [...state.extractedColors];
+    
+    // Generate 2-4 random color stops
+    const numStops = Math.floor(Math.random() * 3) + 2; // 2 to 4 stops
+    const newStops: ColorStop[] = [];
+    
+    for (let i = 0; i < numStops; i++) {
+      // Get random color from available colors
+      const randomIndex = Math.floor(Math.random() * availableColors.length);
+      const color = availableColors[randomIndex];
+      
+      // Calculate position (ensure first is 0 and last is 1)
+      let position;
+      if (i === 0) position = 0;
+      else if (i === numStops - 1) position = 1;
+      else position = Math.random();
+      
+      newStops.push({ id: `stop-${i}`, color, position });
+      
+      // Remove used color to avoid duplicates
+      availableColors.splice(randomIndex, 1);
+      
+      // Break if we run out of colors
+      if (availableColors.length === 0) break;
+    }
+    
+    // Sort stops by position
+    newStops.sort((a, b) => a.position - b.position);
+    
+    // Update gradient settings
+    const newSettings: GradientSettings = {
+      ...settings,
+      style: styles[Math.floor(Math.random() * styles.length)],
+      texture: textures[Math.floor(Math.random() * textures.length)],
+      intensity: Math.random() * 0.5 + 0.2, // Random intensity between 0.2 and 0.7
+    };
+    
+    // Update state
+    setSettings(newSettings);
+    dispatch({ type: 'SET_COLOR_STOPS', payload: newStops });
+  }, [state.extractedColors, settings, dispatch]);
+
   const handleExport = (type: 'json' | 'css' | 'svg') => {
     switch (type) {
       case 'json':
@@ -317,6 +379,7 @@ export function GradientStudio() {
         settings={settings}
         onSettingsChange={setSettings}
         onExport={handleExport}
+        onRandomize={handleRandomize}
       />
     </div>
   );

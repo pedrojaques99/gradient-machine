@@ -427,7 +427,7 @@ export function ColorSidebar({
       className={cn(
         "fixed top-0 left-0 md:sticky md:top-0",
         "z-50",
-        "bg-background-secondary backdrop-blur-sm md:bg-background",
+        "bg-background/80 backdrop-blur-sm",
         "border-r border-zinc-800/50",
         "h-screen",
         "flex flex-col",
@@ -663,6 +663,20 @@ export function ColorSidebar({
         </AnimatePresence>
       </div>
 
+      {/* Hidden File Input */}
+      <input
+        id="upload-button"
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && onImageUpload) {
+            onImageUpload(file);
+          }
+        }}
+      />
+
       {/* Bottom Navigation */}
       <div className={cn(
         "flex items-center justify-between px-2 py-2",
@@ -678,16 +692,29 @@ export function ColorSidebar({
               className="grid grid-cols-3 gap-1 w-full"
             >
               {/* Upload Button */}
-              <UploadButton
-                variant="sidebar"
-                onImageUpload={onImageUpload}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg text-sm",
-                  "hover:bg-accent/10 hover:text-accent",
-                  "transition-all duration-200",
-                  "group"
-                )}
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => document.getElementById('upload-button')?.click()}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg text-sm",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200",
+                        "group"
+                      )}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Upload className="h-4 w-4 group-hover:text-accent transition-colors" />
+                      <span className="text-xs font-medium">Upload</span>
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Upload Image</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Gradient Studio Button */}
               <TooltipProvider>
@@ -747,16 +774,28 @@ export function ColorSidebar({
               className="flex flex-col gap-2"
             >
               {/* Collapsed Upload Button */}
-              <UploadButton
-                variant="sidebar"
-                collapsed={true}
-                onImageUpload={onImageUpload}
-                className={cn(
-                  "p-2 rounded-lg",
-                  "hover:bg-accent/10 hover:text-accent",
-                  "transition-all duration-200"
-                )}
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={() => document.getElementById('upload-button')?.click()}
+                      className={cn(
+                        "p-2 rounded-lg",
+                        "bg-zinc-900/50",
+                        "hover:bg-accent/10 hover:text-accent",
+                        "transition-all duration-200"
+                      )}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">Upload Image</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Collapsed Gradient Studio Button */}
               <TooltipProvider>
@@ -766,6 +805,7 @@ export function ColorSidebar({
                       onClick={() => router.push('/gradient-studio')}
                       className={cn(
                         "p-2 rounded-lg",
+                        "bg-zinc-900/50",
                         "hover:bg-accent/10 hover:text-accent",
                         "transition-all duration-200"
                       )}
@@ -789,6 +829,7 @@ export function ColorSidebar({
                       onClick={() => router.push('/design-system')}
                       className={cn(
                         "p-2 rounded-lg",
+                        "bg-zinc-900/50",
                         "hover:bg-accent/10 hover:text-accent",
                         "transition-all duration-200"
                       )}

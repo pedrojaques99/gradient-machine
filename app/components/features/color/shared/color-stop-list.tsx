@@ -108,7 +108,7 @@ const ColorStopItem = memo(function ColorStopItem({
               transition-colors duration-200
               ${isDragging ? 'opacity-50' : ''}
             `}
-            value={stop.color.replace('#', '').toUpperCase()}
+            value={(stop.color || '#000000').replace('#', '').toUpperCase()}
             onChange={(e) => {
               const value = e.target.value;
               if (/^[0-9A-Fa-f]{6}$/.test(value)) {

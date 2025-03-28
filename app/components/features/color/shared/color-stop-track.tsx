@@ -60,7 +60,7 @@ const ColorStopHandle = memo(function ColorStopHandle({
         "transition-opacity duration-200",
         "text-xs font-medium text-muted-foreground"
       )}>
-        {stop.color.toUpperCase()}
+        {stop.color?.toUpperCase() || '#000000'}
       </div>
     </div>
   );
