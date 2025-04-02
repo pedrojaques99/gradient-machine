@@ -31,6 +31,21 @@ export const ColorSwatch = ({
   const [isLongPressing, setIsLongPressing] = useState(false);
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hexToRgb = (hex: string): string => {
+    try {
+      const cleanHex = hex.replace('#', '');
+      
+      const r = parseInt(cleanHex.substring(0, 2), 16);
+      const g = parseInt(cleanHex.substring(2, 4), 16);
+      const b = parseInt(cleanHex.substring(4, 6), 16);
+      
+      return `rgb(${r}, ${g}, ${b})`;
+    } catch (error) {
+      console.error('Error converting hex to RGB:', error);
+      return 'rgb(0, 0, 0)';
+    }
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (onLongPress) {
       longPressTimeout.current = setTimeout(() => {
@@ -59,8 +74,15 @@ export const ColorSwatch = ({
   };
 
   const tooltipContent = useMemo(() => (
-    <TooltipContent side="top" sideOffset={5}>
-      <p className="font-mono text-xs">{color}</p>
+    <TooltipContent side="top" sideOffset={5} className="space-y-1">
+      <div className="flex items-center gap-2">
+        <div 
+          className="w-3 h-3 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <p className="font-mono text-xs">{color}</p>
+      </div>
+      <p className="font-mono text-xs text-muted-foreground">{hexToRgb(color)}</p>
     </TooltipContent>
   ), [color]);
 

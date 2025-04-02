@@ -27,6 +27,7 @@ import { ColorHarmony } from '../shared/color-harmony';
 import { ImageUploadPreview } from '@/app/components/shared/ImageUploadPreview';
 import { GRADIENT_CLASSES, ACCENT_HIGHLIGHT_CLASSES, UI_SPACING, UI_CLASSES } from '@/app/lib/constants';
 import { ColorSwatch } from '@/app/components/shared/ColorSwatch';
+import { ColorSelectionPopup } from '@/app/components/shared/ColorSelectionPopup';
 
 type DesignSystem = Partial<Record<DesignSystemRoleId, string>>;
 
@@ -283,63 +284,6 @@ const showToast = (message: string, type: 'warning' | 'success' | 'error' = 'war
     el.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
     setTimeout(() => el.remove(), 150);
   }, 3000);
-};
-
-// Update the FocusModeIndicator component
-const FocusModeIndicator = ({ 
-  selectedColor, 
-  selectedRole, 
-  onCancel 
-}: { 
-  selectedColor: string | null;
-  selectedRole: DesignSystemRoleId | null;
-  onCancel: () => void;
-}) => {
-  if (!selectedColor && !selectedRole) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className={cn(
-        "fixed top-4 left-1/2 -translate-x-1/2",
-        "bg-zinc-900/95 backdrop-blur-sm",
-        "px-6 py-3 rounded-xl",
-        "border-2 border-accent/50",
-        "shadow-lg shadow-accent/10",
-        "z-50",
-        "flex items-center gap-4"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        {selectedColor && (
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-5 h-5 rounded-full ring-2 ring-accent/30"
-              style={{ backgroundColor: selectedColor }}
-            />
-            <span className="text-sm font-medium text-accent">Cor selecionada</span>
-          </div>
-        )}
-        {selectedColor && selectedRole && (
-          <ArrowRight className="h-4 w-4 text-accent/50" />
-        )}
-        {selectedRole && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium capitalize text-accent">{selectedRole}</span>
-            <span className="text-xs text-accent/50">função</span>
-          </div>
-        )}
-      </div>
-      <button
-        onClick={onCancel}
-        className="ml-4 p-1.5 hover:bg-accent/10 rounded-lg transition-colors"
-      >
-        <X className="h-4 w-4 text-accent/70" />
-      </button>
-    </motion.div>
-  );
 };
 
 export function ColorDiscovery() {
@@ -743,8 +687,8 @@ export function ColorDiscovery() {
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      {/* Add FocusModeIndicator */}
-      <FocusModeIndicator
+      {/* Replace FocusModeIndicator with ColorSelectionPopup */}
+      <ColorSelectionPopup
         selectedColor={selectedColor}
         selectedRole={selectedRole}
         onCancel={handleCancel}

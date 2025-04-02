@@ -29,8 +29,8 @@ export function Navigation({
 
   const navLinks = [
     { href: '/', icon: Palette, label: 'Discovery' },
-    { href: '/gradient-studio', icon: LineChart, label: 'Gradient' },
-    { href: '/design-system', icon: Wand2, label: 'System' }
+    { href: '/design-system', icon: Wand2, label: 'System' },
+    { href: '/gradient-studio', icon: LineChart, label: 'Gradient' }
   ];
 
   return (
