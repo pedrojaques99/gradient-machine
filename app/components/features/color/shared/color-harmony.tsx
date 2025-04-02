@@ -107,11 +107,15 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   const { h, s, l } = hsl;
 
+  // Adjust saturation and lightness for better harmony
+  const adjustedS = Math.min(100, s + 10);
+  const adjustedL = Math.min(90, Math.max(20, l));
+
   const complementary = {
     type: 'complementary' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex((h + 180) % 360, s, l)
+      hslToHex((h + 180) % 360, adjustedS, adjustedL)
     ],
     labels: ['Base', 'Complementary'],
     description: 'Maximum contrast and stability. Creates a vibrant look when used at full saturation.',
@@ -127,9 +131,9 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   const analogous = {
     type: 'analogous' as HarmonyType,
     colors: [
-      hslToHex((h - 30 + 360) % 360, s, l),
+      hslToHex((h - 30 + 360) % 360, adjustedS, adjustedL),
       baseColor,
-      hslToHex((h + 30) % 360, s, l)
+      hslToHex((h + 30) % 360, adjustedS, adjustedL)
     ],
     labels: ['Harmonious Left', 'Base', 'Harmonious Right'],
     description: 'Natural, comfortable harmony that creates a serene and unified look.',
@@ -146,8 +150,8 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'triadic' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex((h + 120) % 360, s, l),
-      hslToHex((h + 240) % 360, s, l)
+      hslToHex((h + 120) % 360, adjustedS, adjustedL),
+      hslToHex((h + 240) % 360, adjustedS, adjustedL)
     ],
     labels: ['Base', 'Triadic 1', 'Triadic 2'],
     description: 'Vibrant and balanced, offering strong visual contrast while retaining harmony.',
@@ -164,8 +168,8 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'split-complementary' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex((h + 150) % 360, s, l),
-      hslToHex((h + 210) % 360, s, l)
+      hslToHex((h + 150) % 360, adjustedS, adjustedL),
+      hslToHex((h + 210) % 360, adjustedS, adjustedL)
     ],
     labels: ['Base', 'Split 1', 'Split 2'],
     description: 'High contrast but less tension than complementary. Sophisticated and balanced.',
@@ -182,9 +186,9 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'tetradic' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex((h + 90) % 360, s, l),
-      hslToHex((h + 180) % 360, s, l),
-      hslToHex((h + 270) % 360, s, l)
+      hslToHex((h + 90) % 360, adjustedS, adjustedL),
+      hslToHex((h + 180) % 360, adjustedS, adjustedL),
+      hslToHex((h + 270) % 360, adjustedS, adjustedL)
     ],
     labels: ['Base', 'Tetradic 1', 'Tetradic 2', 'Tetradic 3'],
     description: 'Rich and complex harmony offering many possibilities for variation.',
