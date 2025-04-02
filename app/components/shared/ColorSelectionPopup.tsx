@@ -1,5 +1,5 @@
 import { cn } from '@/app/lib/utils';
-import { X, ArrowRight, Copy, Check } from 'lucide-react';
+import { X, ArrowRight, Copy, Check, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
@@ -7,6 +7,7 @@ interface ColorSelectionPopupProps {
   selectedColor: string | null;
   selectedRole?: string | null;
   onCancel: () => void;
+  onShowHarmony?: () => void;
   className?: string;
 }
 
@@ -14,6 +15,7 @@ export function ColorSelectionPopup({
   selectedColor,
   selectedRole,
   onCancel,
+  onShowHarmony,
   className
 }: ColorSelectionPopupProps) {
   const [copiedHex, setCopiedHex] = useState(false);
@@ -203,12 +205,22 @@ export function ColorSelectionPopup({
               )}
               <span className="text-sm font-medium text-accent">Cor selecionada</span>
             </div>
-            <button
-              onClick={onCancel}
-              className="p-1.5 hover:bg-accent/10 rounded-lg transition-colors"
-            >
-              <X className="h-4 w-4 text-accent/70" />
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedColor && onShowHarmony && (
+                <button
+                  onClick={onShowHarmony}
+                  className="p-1.5 hover:bg-accent/10 rounded-lg transition-colors group"
+                >
+                  <Palette className="h-4 w-4 text-accent/70 group-hover:text-accent" />
+                </button>
+              )}
+              <button
+                onClick={onCancel}
+                className="p-1.5 hover:bg-accent/10 rounded-lg transition-colors group"
+              >
+                <X className="h-4 w-4 text-accent/70 group-hover:text-accent" />
+              </button>
+            </div>
           </div>
 
           {selectedColor && (
@@ -224,6 +236,16 @@ export function ColorSelectionPopup({
               <span className="text-sm font-medium capitalize text-accent">{selectedRole}</span>
               <span className="text-xs text-accent/50">função</span>
             </div>
+          )}
+
+          {selectedColor && onShowHarmony && (
+            <button
+              onClick={onShowHarmony}
+              className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-800/70 transition-colors text-zinc-300 hover:text-zinc-100"
+            >
+              <Palette className="h-4 w-4" />
+              <span>Ver Harmonias de Cor</span>
+            </button>
           )}
         </div>
       </motion.div>

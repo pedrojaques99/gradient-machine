@@ -557,9 +557,16 @@ export function ColorSidebar({
                                 />
                               )}
                             </div>
-                            <p className="text-xs text-zinc-400 group-hover:text-zinc-300">
-                              {role.description}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-zinc-400 group-hover:text-zinc-300">
+                                {role.description}
+                              </p>
+                              {state.designSystem[role.id] && (
+                                <span className="text-xs font-mono text-zinc-600/90">
+                                  {state.designSystem[role.id]}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 

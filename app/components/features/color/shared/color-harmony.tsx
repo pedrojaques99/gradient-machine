@@ -28,35 +28,90 @@ interface HarmonyColors {
   usageTips: string[];
 }
 
-function getHarmonyColors(baseColor: string): HarmonyColors[] {
-  const hex = baseColor.replace(/^#/, "");
-  const r = parseInt(hex.slice(0, 2), 16) / 255;
-  const g = parseInt(hex.slice(2, 4), 16) / 255;
-  const b = parseInt(hex.slice(4, 6), 16) / 255;
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  r /= 255;
+  g /= 255;
+  b /= 255;
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0;
-  let s = 0;
-  let l = (max + min) / 2;
+  let h = 0, s = 0, l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
     switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
     }
     h /= 6;
-    h *= 360;
   }
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+
+  if (h >= 0 && h < 60) {
+    r = c; g = x; b = 0;
+  } else if (h >= 60 && h < 120) {
+    r = x; g = c; b = 0;
+  } else if (h >= 120 && h < 180) {
+    r = 0; g = c; b = x;
+  } else if (h >= 180 && h < 240) {
+    r = 0; g = x; b = c;
+  } else if (h >= 240 && h < 300) {
+    r = x; g = 0; b = c;
+  } else if (h >= 300 && h < 360) {
+    r = c; g = 0; b = x;
+  }
+
+  const toHex = (n: number) => {
+    const hex = Math.round((n + m) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function getHarmonyColors(baseColor: string): HarmonyColors[] {
+  const rgb = hexToRgb(baseColor);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const { h, s, l } = hsl;
 
   const complementary = {
     type: 'complementary' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex({ h: (h + 180) % 360, s: s * 100, l: l * 100 })
+      hslToHex((h + 180) % 360, s, l)
     ],
     labels: ['Base', 'Complementary'],
     description: 'Maximum contrast and stability. Creates a vibrant look when used at full saturation.',
@@ -72,9 +127,9 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   const analogous = {
     type: 'analogous' as HarmonyType,
     colors: [
-      hslToHex({ h: (h - 30 + 360) % 360, s: s * 100, l: l * 100 }),
+      hslToHex((h - 30 + 360) % 360, s, l),
       baseColor,
-      hslToHex({ h: (h + 30) % 360, s: s * 100, l: l * 100 })
+      hslToHex((h + 30) % 360, s, l)
     ],
     labels: ['Harmonious Left', 'Base', 'Harmonious Right'],
     description: 'Natural, comfortable harmony that creates a serene and unified look.',
@@ -91,8 +146,8 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'triadic' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex({ h: (h + 120) % 360, s: s * 100, l: l * 100 }),
-      hslToHex({ h: (h + 240) % 360, s: s * 100, l: l * 100 })
+      hslToHex((h + 120) % 360, s, l),
+      hslToHex((h + 240) % 360, s, l)
     ],
     labels: ['Base', 'Triadic 1', 'Triadic 2'],
     description: 'Vibrant and balanced, offering strong visual contrast while retaining harmony.',
@@ -109,8 +164,8 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'split-complementary' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex({ h: (h + 150) % 360, s: s * 100, l: l * 100 }),
-      hslToHex({ h: (h + 210) % 360, s: s * 100, l: l * 100 })
+      hslToHex((h + 150) % 360, s, l),
+      hslToHex((h + 210) % 360, s, l)
     ],
     labels: ['Base', 'Split 1', 'Split 2'],
     description: 'High contrast but less tension than complementary. Sophisticated and balanced.',
@@ -127,9 +182,9 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
     type: 'tetradic' as HarmonyType,
     colors: [
       baseColor,
-      hslToHex({ h: (h + 90) % 360, s: s * 100, l: l * 100 }),
-      hslToHex({ h: (h + 180) % 360, s: s * 100, l: l * 100 }),
-      hslToHex({ h: (h + 270) % 360, s: s * 100, l: l * 100 })
+      hslToHex((h + 90) % 360, s, l),
+      hslToHex((h + 180) % 360, s, l),
+      hslToHex((h + 270) % 360, s, l)
     ],
     labels: ['Base', 'Tetradic 1', 'Tetradic 2', 'Tetradic 3'],
     description: 'Rich and complex harmony offering many possibilities for variation.',
@@ -145,9 +200,9 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   const monochromatic = {
     type: 'monochromatic' as HarmonyType,
     colors: [
-      hslToHex({ h, s: s * 100, l: Math.max(20, l * 100 - 30) }),
+      hslToHex(h, s, Math.max(20, l - 30)),
       baseColor,
-      hslToHex({ h, s: s * 100, l: Math.min(90, l * 100 + 30) })
+      hslToHex(h, s, Math.min(90, l + 30))
     ],
     labels: ['Darker', 'Base', 'Lighter'],
     description: 'Subtle and sophisticated using variations in lightness and saturation.',
@@ -161,19 +216,6 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   };
 
   return [complementary, analogous, triadic, splitComplementary, tetradic, monochromatic];
-}
-
-function hslToHex({ h, s, l }: { h: number; s: number; l: number }): string {
-  s /= 100;
-  l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => l - a * Math.max(Math.min(k(n) - 3, 9 - k(n), 1), -1);
-  const toHex = (x: number) => {
-    const hex = Math.round(x * 255).toString(16);
-    return hex.length === 1 ? "0" + hex : hex;
-  };
-  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`.toUpperCase();
 }
 
 export function ColorHarmony({ baseColor, onSelect, onColorChange, className }: ColorHarmonyProps) {

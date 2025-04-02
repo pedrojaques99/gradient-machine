@@ -298,6 +298,7 @@ export function ColorDiscovery() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [showHarmony, setShowHarmony] = useState(false);
+  const [showHarmonyFor, setShowHarmonyFor] = useState<string | null>(null);
 
   // Group colors by role (same logic as ColorSidebar)
   const roleColors = useMemo(() => {
@@ -601,13 +602,15 @@ export function ColorDiscovery() {
     });
   }, [dispatch, state.extractedColors, state.maxColors]);
 
-  // Handle harmony selection with the same logic
-  const handleHarmonySelect = useCallback((harmonicColor: string) => {
-    // Don't add if color already exists
-    if (state.extractedColors.includes(harmonicColor)) {
-      return;
+  // Add harmony handler
+  const handleShowHarmony = useCallback(() => {
+    if (selectedColor) {
+      setShowHarmonyFor(selectedColor);
     }
-    
+  }, [selectedColor]);
+
+  // Add harmony selection handler
+  const handleHarmonySelect = useCallback((harmonicColor: string) => {
     if (state.extractedColors.length >= state.maxColors) {
       showToast(`Maximum ${state.maxColors} colors allowed. Remove some colors before adding more.`);
       return;
@@ -617,6 +620,7 @@ export function ColorDiscovery() {
       type: 'SET_EXTRACTED_COLORS', 
       payload: [...state.extractedColors, harmonicColor] 
     });
+    setShowHarmonyFor(null);
   }, [dispatch, state.extractedColors, state.maxColors]);
 
   // Add color limit indicator to the UI
@@ -685,13 +689,38 @@ export function ColorDiscovery() {
     return Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
   }
 
+  // Add paste handler
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleUpload(file);
+        }
+        break;
+      }
+    }
+  }, [handleUpload]);
+
+  // Add and remove paste event listener
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [handlePaste]);
+
   return (
     <div className="min-h-screen flex flex-col relative">
-      {/* Replace FocusModeIndicator with ColorSelectionPopup */}
       <ColorSelectionPopup
         selectedColor={selectedColor}
         selectedRole={selectedRole}
         onCancel={handleCancel}
+        onShowHarmony={handleShowHarmony}
       />
 
       {/* Gradient Background */}
@@ -731,14 +760,15 @@ export function ColorDiscovery() {
       
       <main className={cn(
         "flex-1 flex flex-col bg-background",
-        UI_SPACING.container.gap
+        UI_SPACING.container.gap,
+        "px-4 sm:px-6 md:px-8"
       )}>
         {/* Step 1: Image Upload */}
         <section className={cn(
           UI_SPACING.section.padding,
           UI_CLASSES.container,
           UI_SPACING.container.maxWidth,
-          UI_SPACING.container.padding
+          "w-full max-w-7xl mx-auto"
         )}>
           <div className="flex flex-col items-center text-center space-y-3">
             <div className="flex items-center gap-2 text-accent">
@@ -748,6 +778,9 @@ export function ColorDiscovery() {
             <p className={UI_CLASSES.instructionText}>
               Crie paletas de cores perfeitas a partir de qualquer imagem
             </p>
+            <p className="text-xs text-muted-foreground">
+              Arraste uma imagem, cole com Ctrl+V ou clique para fazer upload
+            </p>
           </div>
         </section>
 
@@ -755,14 +788,13 @@ export function ColorDiscovery() {
         <section className={cn(
           "flex-1",
           UI_CLASSES.container,
-          UI_SPACING.container.maxWidth,
-          UI_SPACING.container.padding,
+          "w-full max-w-7xl mx-auto",
           "pb-12"
         )}>
           {!state.extractedColors.length ? (
             // Step 1: Initial Upload State
             <motion.div 
-              className="max-w-md mx-auto"
+              className="w-full max-w-md mx-auto px-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -789,14 +821,14 @@ export function ColorDiscovery() {
           ) : (
             // Steps 2 & 3: Color Management
             <motion.div
-              className={cn("space-y-8", UI_SPACING.section.gap)}
+              className={cn("space-y-8 w-full", UI_SPACING.section.gap)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               {/* Step 2: Image Preview & Extracted Colors */}
-              <div className="flex flex-col md:flex-row gap-8 items-start">
+              <div className="flex flex-col lg:flex-row gap-8 items-start">
                 {/* Image Preview */}
-                <div className="w-full md:w-1/2">
+                <div className="w-full lg:w-1/2 min-w-0">
                   <ImageUploadPreview
                     imagePreview={imagePreview}
                     onUpload={handleUpload}
@@ -807,43 +839,46 @@ export function ColorDiscovery() {
                 </div>
 
                 {/* Extracted Colors Grid */}
-                <div className="w-full space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className={UI_CLASSES.sectionTitle}>Cores extraídas</h2>
-                  </div>
-                  <div className="grid grid-cols-8 gap-2">
-                    {state.extractedColors.map((color, index) => (
-                      <ColorSwatch
-                        key={color + index}
-                        color={color}
-                        isSelected={selectedColor === color}
-                        onClick={() => handleColorSelect(color)}
-                        size='lg'
-                      />
-                    ))}
+                <div className="w-full lg:w-1/2 min-w-0">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h2 className={UI_CLASSES.sectionTitle}>Cores extraídas</h2>
+                      <ColorLimitIndicator />
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                      {state.extractedColors.map((color, index) => (
+                        <ColorSwatch
+                          key={color + index}
+                          color={color}
+                          isSelected={selectedColor === color}
+                          onClick={() => handleColorSelect(color)}
+                          size='lg'
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Step 3: Color Role Configuration */}
               <section className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <h2 className={UI_CLASSES.sectionTitle}>Configurar funções das cores</h2>
                   <motion.div 
                     className={cn(
                       UI_CLASSES.card,
-                      "p-2 inline-flex items-center gap-2 text-xs"
+                      "p-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs w-full sm:w-auto"
                     )}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
                     <span className={UI_CLASSES.highlight}>Como configurar:</span>
-                    <ol className="flex items-center gap-3">
+                    <ol className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
                       <li className="flex items-center gap-2">
                         <span className="bg-accent/20 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span>
                         Selecione uma cor
                       </li>
-                      <ArrowRight className="h-3 w-3 opacity-50" />
+                      <ArrowRight className="hidden sm:block h-3 w-3 opacity-50" />
                       <li className="flex items-center gap-2">
                         <span className="bg-accent/20 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span>
                         Atribua uma função
@@ -852,15 +887,11 @@ export function ColorDiscovery() {
                   </motion.div>
                 </div>
 
-                {/* Role Sections */}
-                {COLOR_ROLES.map((currentRole) => (
-                  <div 
-                    key={currentRole.id} 
-                    className="space-y-3"
-                    onFocus={() => setFocusedRole(currentRole.id)}
-                    onBlur={() => setFocusedRole(null)}
-                  >
+                {/* Role Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {COLOR_ROLES.map((currentRole) => (
                     <motion.div
+                      key={currentRole.id}
                       className={cn(
                         "group relative overflow-hidden rounded-xl",
                         "bg-zinc-900/50 hover:bg-zinc-800/50",
@@ -875,23 +906,13 @@ export function ColorDiscovery() {
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
                     >
-                      {/* Background highlight effect */}
-                      <motion.div
-                        className={cn(
-                          "absolute inset-0 bg-accent/5 opacity-0",
-                          "transition-opacity duration-200",
-                          "group-hover:opacity-100",
-                          (selectedRole === currentRole.id || focusedRole === currentRole.id) && "opacity-100"
-                        )}
-                      />
-
-                      {/* Content */}
+                      {/* Role Card Content */}
                       <div className="relative p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {/* Role icon */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-3">
+                          {/* Role icon and info */}
+                          <div className="flex items-center gap-3 w-full sm:w-auto">
                             <div className={cn(
-                              "w-10 h-10 rounded-lg flex items-center justify-center",
+                              "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
                               "bg-zinc-800/50 group-hover:bg-accent/10",
                               "transition-colors duration-200",
                               (selectedRole === currentRole.id || focusedRole === currentRole.id) && "bg-accent/10"
@@ -910,12 +931,10 @@ export function ColorDiscovery() {
                                 )} />
                               )}
                             </div>
-
-                            {/* Role info */}
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className={cn(
-                                  "text-sm font-medium capitalize",
+                                  "text-sm font-medium capitalize truncate",
                                   "text-zinc-200 group-hover:text-accent",
                                   "transition-colors duration-200",
                                   (selectedRole === currentRole.id || focusedRole === currentRole.id) && "text-accent"
@@ -926,33 +945,39 @@ export function ColorDiscovery() {
                                   <motion.div
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
-                                    className="w-2 h-2 rounded-full bg-accent"
+                                    className="w-2 h-2 rounded-full bg-accent shrink-0"
                                   />
                                 )}
                               </div>
-                              <p className="text-xs text-zinc-400 group-hover:text-zinc-300">
-                                {currentRole.description}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-zinc-400 group-hover:text-zinc-300 line-clamp-2 sm:line-clamp-1">
+                                  {currentRole.description}
+                                </p>
+                                {state.designSystem[currentRole.id] && (
+                                  <span className="text-xs font-mono text-accent/70 shrink-0">
+                                    {state.designSystem[currentRole.id]}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
                           {/* Status indicators and color thumbnails */}
-                          <div className="flex items-center gap-3">
-                            {/* Color thumbnails */}
+                          <div className="flex items-center gap-3 ml-auto">
                             {state.designSystem[currentRole.id] && (
                               <div className="flex items-center gap-3">
                                 <div 
-                                  className="w-6 h-6 rounded-lg ring-2 ring-accent/30"
+                                  className="w-6 h-6 rounded-lg ring-2 ring-accent/30 shrink-0"
                                   style={{ backgroundColor: state.designSystem[currentRole.id] }}
                                 />
-                                <span className="text-xs font-mono text-accent/70">
+                                <span className="text-xs font-mono text-accent/70 hidden sm:block">
                                   {state.designSystem[currentRole.id]}
                                 </span>
                               </div>
                             )}
                             
                             {/* Status messages */}
-                            <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center gap-2">
                               {focusedRole === currentRole.id && (
                                 <motion.div
                                   initial={{ opacity: 0, x: -10 }}
@@ -977,21 +1002,62 @@ export function ColorDiscovery() {
                         </div>
                       </div>
                     </motion.div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </section>
 
-              {/* Color Analysis (shown when a color is selected) */}
+              {/* Color Analysis */}
               {selectedColor && (
-                <section className="space-y-4">
+                <section className="space-y-4 w-full">
                   <h2 className={UI_CLASSES.sectionTitle}>Análise de Cor</h2>
-                  <ColorAnalysis color={selectedColor} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <ColorAnalysis color={selectedColor} />
+                  </div>
                 </section>
               )}
             </motion.div>
           )}
         </section>
       </main>
+
+      {/* Add Harmony Section after Role Cards */}
+      {showHarmonyFor && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 overflow-y-auto"
+        >
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <motion.div 
+              className="w-full max-w-3xl bg-zinc-900/90 rounded-xl border border-zinc-800/50 p-6 space-y-6"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-8 h-8 rounded-lg ring-2 ring-accent/30"
+                    style={{ backgroundColor: showHarmonyFor }}
+                  />
+                  <h2 className="text-lg font-medium text-zinc-200">Harmonias de Cor</h2>
+                </div>
+                <button
+                  onClick={() => setShowHarmonyFor(null)}
+                  className="p-2 hover:bg-accent/10 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-accent/70" />
+                </button>
+              </div>
+
+              <ColorHarmony
+                baseColor={showHarmonyFor}
+                onSelect={handleHarmonySelect}
+              />
+            </motion.div>
+          </div>
+        </motion.section>
+      )}
     </div>
   );
 } 
