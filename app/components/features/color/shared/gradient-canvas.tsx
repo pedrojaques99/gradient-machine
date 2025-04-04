@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, memo } from 'react';
+import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { RotateCw } from 'lucide-react';
 import { useColorStops, useGradient, useGradientError } from '@/app/contexts/GradientContext';
@@ -75,6 +75,118 @@ function addTransparency(color: string, opacity: number): string {
 // Constants for gradient limits
 const MAX_FLUID_SOFT_STOPS = 8;
 
+// Add performance utility functions before the GradientCanvas component
+// Performance utilities
+function getDevicePerformanceLevel(): 'high' | 'medium' | 'low' {
+  // Check for device capabilities to determine performance level
+  const memory = (navigator as any).deviceMemory;
+  const cores = navigator.hardwareConcurrency;
+  
+  if (memory && cores) {
+    if (memory >= 4 && cores >= 4) return 'high';
+    if (memory >= 2 && cores >= 2) return 'medium';
+  }
+  
+  // Mobile detection (simplified)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return isMobile ? 'low' : 'medium';
+}
+
+// Adaptive frame rate control based on interaction type
+function getTargetFPS(interactionType: 'dragging' | 'hovering' | 'static', performanceLevel: 'high' | 'medium' | 'low'): number {
+  const fpsTable = {
+    high: { dragging: 60, hovering: 30, static: 10 },
+    medium: { dragging: 30, hovering: 20, static: 5 },
+    low: { dragging: 24, hovering: 15, static: 2 }
+  };
+  
+  return fpsTable[performanceLevel][interactionType];
+}
+
+// History tracking for undo/redo
+interface GradientHistory {
+  colorStops: ColorStop[];
+  timestamp: number;
+}
+
+// Validate and normalize color stops to prevent errors
+function normalizeColorStops(stops: ColorStop[]): ColorStop[] {
+  if (!stops || !Array.isArray(stops)) {
+    return [{ id: '1', color: '#000000', position: 0 }, { id: '2', color: '#ffffff', position: 1 }];
+  }
+  
+  return stops.map(stop => {
+    // Clone to avoid mutations
+    const normalizedStop = { ...stop };
+    
+    // Ensure position is within 0-1 range
+    normalizedStop.position = Math.max(0, Math.min(1, normalizedStop.position));
+    
+    // Ensure x/y are within 0-1 range if they exist
+    if (normalizedStop.x !== undefined) {
+      normalizedStop.x = Math.max(0, Math.min(1, normalizedStop.x));
+    }
+    
+    if (normalizedStop.y !== undefined) {
+      normalizedStop.y = Math.max(0, Math.min(1, normalizedStop.y));
+    }
+    
+    // Ensure color is valid
+    if (!normalizedStop.color || typeof normalizedStop.color !== 'string') {
+      normalizedStop.color = '#000000';
+    } else if (!normalizedStop.color.startsWith('#') && !normalizedStop.color.startsWith('rgb')) {
+      // Try to fix common color format issues
+      if (/^[0-9A-Fa-f]{6}$/.test(normalizedStop.color)) {
+        normalizedStop.color = '#' + normalizedStop.color;
+      }
+    }
+    
+    return normalizedStop;
+  });
+}
+
+// Function to safely add color stops to a gradient
+function safelyAddColorStops(gradient: CanvasGradient, stops: ColorStop[]): boolean {
+  let success = true;
+  
+  try {
+    // First validate all stops have positions between 0-1
+    const normalizedStops = normalizeColorStops(stops);
+    
+    // Then add them to the gradient
+    normalizedStops.forEach(stop => {
+      try {
+        gradient.addColorStop(stop.position, stop.color);
+      } catch (error) {
+        console.error(`Error adding color stop at position ${stop.position}:`, error);
+        success = false;
+        
+        // Try adding a fallback color if the position is valid
+        if (stop.position >= 0 && stop.position <= 1) {
+          try {
+            gradient.addColorStop(stop.position, '#000000');
+          } catch (e) {
+            // If even the fallback fails, we can't do much
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error adding gradient color stops:", error);
+    success = false;
+    
+    // Add basic fallback gradient if all else fails
+    try {
+      gradient.addColorStop(0, '#000000');
+      gradient.addColorStop(1, '#ffffff');
+    } catch (e) {
+      // Last resort failed, gradient will be broken
+    }
+  }
+  
+  return success;
+}
+
 export function GradientCanvas({ 
   showTrack = true,
   showOrientationToggle = true,
@@ -93,6 +205,147 @@ export function GradientCanvas({
   const [conicRotation, setConicRotation] = useState(0);
   const rafRef = useRef<number | undefined>(undefined);
   const lastDrawRef = useRef<number>(0);
+  
+  // Undo/Redo history system
+  const [history, setHistory] = useState<GradientHistory[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [lastSavedState, setLastSavedState] = useState<string>('');
+  
+  // Add undo/redo functionality
+  const addToHistory = useCallback((stops: ColorStop[]) => {
+    // Create a JSON representation of the current state for comparison
+    const stateJson = JSON.stringify(stops);
+    
+    // Only add to history if state has changed from last saved state
+    if (stateJson !== lastSavedState) {
+      // Truncate future history if we're not at the end
+      const newHistory = history.slice(0, historyIndex + 1);
+      
+      // Add current state to history
+      newHistory.push({
+        colorStops: JSON.parse(JSON.stringify(stops)), // Deep clone
+        timestamp: Date.now(),
+      });
+      
+      // Limit history size (keep last 20 states)
+      if (newHistory.length > 20) {
+        newHistory.shift();
+      }
+      
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      setLastSavedState(stateJson);
+    }
+  }, [history, historyIndex, lastSavedState]);
+  
+  // Handle undo action
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      const previousState = history[newIndex];
+      
+      if (previousState && previousState.colorStops) {
+        if (onColorStopsChange) {
+          onColorStopsChange(previousState.colorStops);
+        } else {
+          dispatch({ type: 'SET_COLOR_STOPS', payload: previousState.colorStops });
+        }
+        setHistoryIndex(newIndex);
+      }
+    }
+  }, [history, historyIndex, dispatch, onColorStopsChange]);
+  
+  // Handle redo action
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const nextState = history[newIndex];
+      
+      if (nextState && nextState.colorStops) {
+        if (onColorStopsChange) {
+          onColorStopsChange(nextState.colorStops);
+        } else {
+          dispatch({ type: 'SET_COLOR_STOPS', payload: nextState.colorStops });
+        }
+        setHistoryIndex(newIndex);
+      }
+    }
+  }, [history, historyIndex, dispatch, onColorStopsChange]);
+  
+  // Add keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+  
+  // Initialize history with current state
+  useEffect(() => {
+    if (history.length === 0 && colorStops.length > 0) {
+      addToHistory(colorStops);
+    }
+  }, [colorStops, history.length, addToHistory]);
+
+  // Performance optimization state
+  const performanceLevelRef = useRef<'high' | 'medium' | 'low'>(getDevicePerformanceLevel());
+  const interactionTypeRef = useRef<'dragging' | 'hovering' | 'static'>('static');
+  const needsFullRerenderRef = useRef<boolean>(true);
+  const renderQueueRef = useRef<Set<string>>(new Set(['base']));
+
+  // Update interaction type based on current state
+  useEffect(() => {
+    if (draggingIndex !== null) {
+      interactionTypeRef.current = 'dragging';
+    } else if (hoverIndex !== null) {
+      interactionTypeRef.current = 'hovering';
+    } else {
+      interactionTypeRef.current = 'static';
+    }
+  }, [draggingIndex, hoverIndex]);
+
+  // Force a full render when certain props change
+  useEffect(() => {
+    needsFullRerenderRef.current = true;
+  }, [gradientStyle, isVertical, backgroundColor, state.gradientSize]);
+
+  // Create WebGL pattern generator for optimal effect rendering
+  const patternGenerator = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    
+    // Basic check if WebGL is available
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return null;
+      
+      // WebGL is available - in a real implementation we would set up proper shaders here
+      return {
+        createPattern: (type: 'gitter' | 'halftone', params: any) => {
+          // This is a placeholder - in a real implementation we would use WebGL for pattern generation
+          if (type === 'gitter') {
+            return createGitterPattern(canvas.getContext('2d')!, params.size);
+          } else {
+            return createHalftonePattern(canvas.getContext('2d')!, params.dotSize, params.spacing);
+          }
+        }
+      };
+    } catch (e) {
+      return null;
+    }
+  }, []);
 
   // Initialize canvas size
   useEffect(() => {
@@ -171,271 +424,355 @@ export function GradientCanvas({
 
     // Schedule next frame
     rafRef.current = requestAnimationFrame(() => {
-      const width = state.canvasWidth;
-      const height = state.canvasHeight;
-      const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
-      const centerX = width / 2;
-      const centerY = height / 2;
-      const radius = Math.min(width, height) / 2 * (state.gradientSize / 100);
+      try {
+        const width = state.canvasWidth;
+        const height = state.canvasHeight;
+        const { SIZE, BORDER, TRACK, GUIDE_LINE } = COLOR_STOP;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) / 2 * (state.gradientSize / 100);
 
-      // Clear canvas and set background
-      ctx.fillStyle = backgroundColor;
-      ctx.fillRect(0, 0, width, height);
+        // Clear canvas and set background
+        ctx.fillStyle = typeof backgroundColor === 'string' ? backgroundColor : '#000000';
+        ctx.fillRect(0, 0, width, height);
 
-      // Create gradient based on style
-      let gradient: CanvasGradient | undefined;
-      
-      switch (gradientStyle) {
-        case 'linear':
-          gradient = ctx.createLinearGradient(
-            isVertical ? 0 : 0,
-            isVertical ? 0 : 0,
-            isVertical ? 0 : width,
-            isVertical ? height : 0
-          );
-          break;
-        case 'radial':
-          gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-          break;
-        case 'conic':
-          gradient = ctx.createConicGradient(0, centerX, centerY);
-          break;
-        case 'diagonal':
+        // Create gradient based on style
+        let gradient: CanvasGradient | undefined;
+        
+        // Ensure we have valid color stops before attempting to render
+        const validColorStops = colorStops.filter(stop => {
+          return stop && typeof stop.color === 'string' && typeof stop.position === 'number' && !isNaN(stop.position);
+        });
+
+        if (validColorStops.length < 1) {
+          // If no valid color stops, render a basic gradient
           gradient = ctx.createLinearGradient(0, 0, width, height);
-          break;
-        case 'fluid':
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          
-          // Apply safety limit for complex gradients
-          const safeFluidStops = colorStops.length > MAX_FLUID_SOFT_STOPS 
-            ? colorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
-            : colorStops;
-          
-          safeFluidStops.forEach((stop, index) => {
-            const x = (stop.x ?? stop.position) * width;
-            const y = (stop.y ?? 0.5) * height;
-            const gradientRadius = radius * (state.handleSize / 16) * 0.8;
-            
-            try {
-              const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-              fluidGradient.addColorStop(0, stop.color);
-              fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
-              
-              ctx.fillStyle = fluidGradient;
-              ctx.beginPath();
-              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-              ctx.fill();
-            } catch (error) {
-              console.error('Error creating fluid gradient:', error);
-              // Continue to next stop on error
-              return;
-            }
-          });
-          ctx.restore();
-          break;
-        case 'soft':
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          
-          // Apply safety limit for complex gradients
-          const safeColorStops = colorStops.length > MAX_FLUID_SOFT_STOPS 
-            ? colorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
-            : colorStops;
-          
-          safeColorStops.forEach((stop, index) => {
-            const x = (stop.x ?? stop.position) * width;
-            const y = (stop.y ?? 0.5) * height;
-            const gradientRadius = radius * (state.handleSize / 16) * 1.2;
-            const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-            
-            try {
-              softGradient.addColorStop(0, stop.color);
-              softGradient.addColorStop(0.5, addTransparency(stop.color, 0.5)); // Use helper function
-              softGradient.addColorStop(1, 'rgba(0,0,0,0)');
-              
-              ctx.fillStyle = softGradient;
-              ctx.beginPath();
-              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-              ctx.fill();
-            } catch (error) {
-              console.error('Error creating soft gradient:', error);
-              // Fallback to simpler gradient
-              const simpleGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-              simpleGradient.addColorStop(0, stop.color);
-              simpleGradient.addColorStop(1, 'rgba(0,0,0,0)');
-              
-              ctx.fillStyle = simpleGradient;
-              ctx.beginPath();
-              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          });
-          ctx.restore();
-          break;
-      }
-
-      // Add color stops to gradient for non-fluid/soft styles
-      if (gradient) {
-        try {
-          colorStops.forEach(stop => {
-            try {
-              gradient!.addColorStop(stop.position, stop.color);
-            } catch (error) {
-              console.error(`Error adding color stop (${stop.color}) at position ${stop.position}:`, error);
-              // Try with a fallback color
-              gradient!.addColorStop(stop.position, 'rgba(0,0,0,0.5)');
-            }
-          });
+          gradient.addColorStop(0, '#000000');
+          gradient.addColorStop(1, '#ffffff');
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, width, height);
-        } catch (error) {
-          console.error('Error rendering gradient:', error);
-          // Fallback to a basic gradient
-          const fallbackGradient = ctx.createLinearGradient(0, 0, width, height);
-          fallbackGradient.addColorStop(0, '#000000');
-          fallbackGradient.addColorStop(1, '#ffffff');
-          ctx.fillStyle = fallbackGradient;
-          ctx.fillRect(0, 0, width, height);
-          
-          // Notify user of the error
-          setError('Error rendering gradient. Try a different style or fewer colors.');
+          return;
         }
-      }
-
-      // Draw effects if enabled
-      if (state.gradientSettings.gitterIntensity > 0) {
-        ctx.save();
-        ctx.globalAlpha = state.gradientSettings.gitterIntensity / 100;
-        ctx.globalCompositeOperation = 'overlay';
-        const pattern = ctx.createPattern(createGitterPattern(ctx, 4), 'repeat');
-        if (pattern) {
-          ctx.fillStyle = pattern;
-          ctx.fillRect(0, 0, width, height);
-        }
-        ctx.restore();
-      }
-
-      if (state.gradientSettings.halftoneMode) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'overlay';
-        const pattern = ctx.createPattern(createHalftonePattern(ctx, 4, 8), 'repeat');
-        if (pattern) {
-          ctx.fillStyle = pattern;
-          ctx.fillRect(0, 0, width, height);
-        }
-        ctx.restore();
-      }
-
-      // Draw track if enabled
-      if (showTrack) {
-        ctx.save();
-        ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
-        const trackX = isVertical ? width - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
-        const trackY = isVertical ? TRACK.PADDING : height - SIZE.DEFAULT - TRACK.HEIGHT;
-        const trackWidth = isVertical ? TRACK.HEIGHT : width - TRACK.PADDING * 2;
-        const trackHeight = isVertical ? height - TRACK.PADDING * 2 : TRACK.HEIGHT;
-
-        ctx.beginPath();
-        ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // Draw color stops
-      colorStops.forEach((stop, index) => {
-        let x, y;
+        
         switch (gradientStyle) {
           case 'linear':
-            x = isVertical 
-              ? width - SIZE.DEFAULT - TRACK.HEIGHT / 2 
-              : TRACK.PADDING + stop.position * (width - TRACK.PADDING * 2);
-            y = isVertical 
-              ? TRACK.PADDING + stop.position * (height - TRACK.PADDING * 2)
-              : height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+            gradient = ctx.createLinearGradient(
+              isVertical ? 0 : 0,
+              isVertical ? 0 : 0,
+              isVertical ? 0 : width,
+              isVertical ? height : 0
+            );
             break;
           case 'radial':
-            x = width / 2;
-            y = height / 2 + (stop.position - 0.5) * height;
+            gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
             break;
           case 'conic':
-            const angle = stop.position * Math.PI * 2;
-            x = centerX + Math.cos(angle) * radius;
-            y = centerY + Math.sin(angle) * radius;
+            gradient = ctx.createConicGradient(0, centerX, centerY);
             break;
           case 'diagonal':
-            x = stop.position * width;
-            y = stop.position * height;
+            gradient = ctx.createLinearGradient(0, 0, width, height);
             break;
           case 'fluid':
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            
+            // Apply safety limit for complex gradients
+            const safeFluidStops = validColorStops.length > MAX_FLUID_SOFT_STOPS 
+              ? validColorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
+              : validColorStops;
+            
+            safeFluidStops.forEach((stop, index) => {
+              const x = (stop.x ?? stop.position) * width;
+              const y = (stop.y ?? 0.5) * height;
+              const gradientRadius = radius * (state.handleSize / 16) * 0.8;
+              
+              try {
+                const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+                fluidGradient.addColorStop(0, stop.color);
+                fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                ctx.fillStyle = fluidGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+                ctx.fill();
+              } catch (error) {
+                console.error('Error creating fluid gradient:', error);
+                // Continue to next stop on error
+                return;
+              }
+            });
+            ctx.restore();
+            break;
           case 'soft':
-            x = (stop.x ?? stop.position) * width;
-            y = (stop.y ?? 0.5) * height;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            
+            // Apply safety limit for complex gradients
+            const safeColorStops = validColorStops.length > MAX_FLUID_SOFT_STOPS 
+              ? validColorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
+              : validColorStops;
+            
+            safeColorStops.forEach((stop, index) => {
+              const x = (stop.x ?? stop.position) * width;
+              const y = (stop.y ?? 0.5) * height;
+              const gradientRadius = radius * (state.handleSize / 16) * 1.2;
+              const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+              
+              try {
+                softGradient.addColorStop(0, stop.color);
+                // Fix the transparency issue - use rgba format instead of hex+alpha
+                const rgbaColor = stop.color.startsWith('#') 
+                  ? hexToRgba(stop.color, 0.5) 
+                  : addTransparency(stop.color, 0.5);
+                softGradient.addColorStop(0.5, rgbaColor);
+                softGradient.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                ctx.fillStyle = softGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+                ctx.fill();
+              } catch (error) {
+                console.error('Error creating soft gradient:', error);
+                // Fallback to simpler gradient
+                const simpleGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+                simpleGradient.addColorStop(0, stop.color);
+                simpleGradient.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                ctx.fillStyle = simpleGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            });
+            ctx.restore();
             break;
         }
 
-        const isSelected = index === state.selectedColorIndex;
-        const isHovered = index === hoverIndex;
-        const isDragging = index === draggingIndex;
-        const scale = isDragging ? SIZE.ACTIVE / SIZE.DEFAULT : 
-                     isHovered ? SIZE.HOVER / SIZE.DEFAULT : 1;
-
-        // Draw guide line for selected stop
-        if (isSelected && showTrack) {
-          ctx.save();
-          ctx.beginPath();
-          if (isVertical) {
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-          } else {
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
+        // Add color stops to gradient for non-fluid/soft styles
+        if (gradient) {
+          try {
+            // Ensure positions are in ascending order for color stops
+            validColorStops
+              .slice()
+              .sort((a, b) => a.position - b.position)
+              .forEach(stop => {
+                try {
+                  // Ensure position is between 0 and 1
+                  const safePosition = Math.max(0, Math.min(1, stop.position));
+                  gradient!.addColorStop(safePosition, stop.color);
+                } catch (error) {
+                  console.error(`Error adding color stop (${stop.color}) at position ${stop.position}:`, error);
+                  // Try with a fallback color
+                  try {
+                    gradient!.addColorStop(Math.max(0, Math.min(1, stop.position)), 'rgba(0,0,0,0.5)');
+                  } catch (e) {
+                    // Ignore if even this fails
+                  }
+                }
+              });
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+          } catch (error) {
+            console.error('Error rendering gradient:', error);
+            // Fallback to a basic gradient
+            const fallbackGradient = ctx.createLinearGradient(0, 0, width, height);
+            fallbackGradient.addColorStop(0, '#000000');
+            fallbackGradient.addColorStop(1, '#ffffff');
+            ctx.fillStyle = fallbackGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Notify user of the error
+            setError('Error rendering gradient. Try a different style or fewer colors.');
           }
-          ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
-          ctx.lineWidth = GUIDE_LINE.WIDTH;
-          ctx.stroke();
-          ctx.restore();
+        }
+        
+        // Draw effects if enabled
+        if (state.gradientSettings.gitterIntensity > 0) {
+          try {
+            ctx.save();
+            ctx.globalAlpha = state.gradientSettings.gitterIntensity / 100;
+            ctx.globalCompositeOperation = 'overlay';
+            const pattern = ctx.createPattern(createGitterPattern(ctx, 4), 'repeat');
+            if (pattern) {
+              ctx.fillStyle = pattern;
+              ctx.fillRect(0, 0, width, height);
+            }
+            ctx.restore();
+          } catch (error) {
+            console.error('Error applying gitter effect:', error);
+          }
         }
 
-        // Draw stop handle
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(scale, scale);
+        if (state.gradientSettings.halftoneMode) {
+          try {
+            ctx.save();
+            ctx.globalCompositeOperation = 'overlay';
+            const pattern = ctx.createPattern(createHalftonePattern(ctx, 4, 8), 'repeat');
+            if (pattern) {
+              ctx.fillStyle = pattern;
+              ctx.fillRect(0, 0, width, height);
+            }
+            ctx.restore();
+          } catch (error) {
+            console.error('Error applying halftone effect:', error);
+          }
+        }
+
+        // Draw track if enabled
+        if (showTrack) {
+          try {
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${TRACK.OPACITY})`;
+            const trackX = isVertical ? width - SIZE.DEFAULT - TRACK.HEIGHT : TRACK.PADDING;
+            const trackY = isVertical ? TRACK.PADDING : height - SIZE.DEFAULT - TRACK.HEIGHT;
+            const trackWidth = isVertical ? TRACK.HEIGHT : width - TRACK.PADDING * 2;
+            const trackHeight = isVertical ? height - TRACK.PADDING * 2 : TRACK.HEIGHT;
+
+            ctx.beginPath();
+            ctx.roundRect(trackX, trackY, trackWidth, trackHeight, TRACK.HEIGHT / 2);
+            ctx.fill();
+            ctx.restore();
+          } catch (error) {
+            console.error('Error drawing track:', error);
+          }
+        }
+
+        // Draw color stops
+        validColorStops.forEach((stop, index) => {
+          try {
+            let x, y;
+            switch (gradientStyle) {
+              case 'linear':
+                x = isVertical 
+                  ? width - SIZE.DEFAULT - TRACK.HEIGHT / 2 
+                  : TRACK.PADDING + stop.position * (width - TRACK.PADDING * 2);
+                y = isVertical 
+                  ? TRACK.PADDING + stop.position * (height - TRACK.PADDING * 2)
+                  : height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+                break;
+              case 'radial':
+                x = width / 2;
+                y = height / 2 + (stop.position - 0.5) * height;
+                break;
+              case 'conic':
+                const angle = stop.position * Math.PI * 2;
+                x = centerX + Math.cos(angle) * radius;
+                y = centerY + Math.sin(angle) * radius;
+                break;
+              case 'diagonal':
+                x = stop.position * width;
+                y = stop.position * height;
+                break;
+              case 'fluid':
+              case 'soft':
+                x = (stop.x ?? stop.position) * width;
+                y = (stop.y ?? 0.5) * height;
+                break;
+              default:
+                x = TRACK.PADDING + stop.position * (width - TRACK.PADDING * 2);
+                y = height - SIZE.DEFAULT - TRACK.HEIGHT / 2;
+            }
+
+            const isSelected = index === state.selectedColorIndex;
+            const isHovered = index === hoverIndex;
+            const isDragging = index === draggingIndex;
+            const scale = isDragging ? SIZE.ACTIVE / SIZE.DEFAULT : 
+                        isHovered ? SIZE.HOVER / SIZE.DEFAULT : 1;
+
+            // Draw guide line for selected stop
+            if (isSelected && showTrack) {
+              ctx.save();
+              ctx.beginPath();
+              if (isVertical) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+              } else {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+              }
+              ctx.strokeStyle = `rgba(var(--primary), ${GUIDE_LINE.OPACITY})`;
+              ctx.lineWidth = GUIDE_LINE.WIDTH;
+              ctx.stroke();
+              ctx.restore();
+            }
+
+            // Draw stop handle
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            
+            // Shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 2;
+
+            // Stop circle
+            ctx.beginPath();
+            ctx.arc(0, 0, SIZE.DEFAULT / 2, 0, Math.PI * 2);
+            ctx.fillStyle = stop.color;
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = isSelected || isHovered ? 'hsl(var(--primary))' : 'white';
+            ctx.lineWidth = isSelected || isDragging ? BORDER.HOVER_WIDTH : BORDER.WIDTH;
+            ctx.stroke();
+
+            ctx.restore();
+          } catch (error) {
+            console.error('Error drawing color stop:', error);
+          }
+        });
+      } catch (error) {
+        console.error('Critical error in canvas rendering:', error);
         
-        // Shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetY = 2;
-
-        // Stop circle
-        ctx.beginPath();
-        ctx.arc(0, 0, SIZE.DEFAULT / 2, 0, Math.PI * 2);
-        ctx.fillStyle = stop.color;
-        ctx.fill();
-
-        // Border
-        ctx.strokeStyle = isSelected || isHovered ? 'hsl(var(--primary))' : 'white';
-        ctx.lineWidth = isSelected || isDragging ? BORDER.HOVER_WIDTH : BORDER.WIDTH;
-        ctx.stroke();
-
-        ctx.restore();
-      });
+        // Last resort fallback - just fill with a solid color
+        try {
+          ctx.fillStyle = '#333333';
+          ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          
+          // Draw error message
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Error rendering gradient', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        } catch (e) {
+          // Nothing more we can do
+        }
+      }
     });
-  }, [colorStops, gradientStyle, isVertical, backgroundColor, state.gradientSize, state.handleSize]);
+  }, [colorStops, gradientStyle, isVertical, backgroundColor, state.gradientSize, state.handleSize, state.selectedColorIndex, hoverIndex, draggingIndex, state.gradientSettings.gitterIntensity, state.gradientSettings.halftoneMode, showTrack, setError]);
 
-  // Cleanup animation frame on unmount
+  // Request a render when interaction state changes
+  const requestRender = useCallback((layers: string[] = ['base']) => {
+    layers.forEach(layer => renderQueueRef.current.add(layer));
+    drawCanvas();
+  }, [drawCanvas]);
+
+  // Draw on changes and setup a lower frequency static render loop
   useEffect(() => {
+    // Initial render
+    requestRender();
+    
+    // Static render loop for gradual effects/animations
+    let staticInterval: NodeJS.Timeout;
+    if (interactionTypeRef.current === 'static') {
+      const staticFPS = getTargetFPS('static', performanceLevelRef.current);
+      staticInterval = setInterval(() => {
+        if (state.gradientSettings.halftoneMode || state.gradientSettings.gitterIntensity > 0) {
+          // Only request renders for animations or effects
+          requestRender(['effects']);
+        }
+      }, 1000 / staticFPS);
+    }
+    
     return () => {
+      if (staticInterval) clearInterval(staticInterval);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, []);
-
-  // Draw on changes
-  useEffect(() => {
-    drawCanvas();
-  }, [drawCanvas]);
+  }, [drawCanvas, requestRender, state.gradientSettings.halftoneMode, state.gradientSettings.gitterIntensity]);
 
   // Position calculation
   const getColorStopAtPosition = useCallback((x: number, y: number) => {
@@ -503,7 +840,7 @@ export function GradientCanvas({
     return null;
   }, [colorStops, isVertical, gradientStyle, state.canvasWidth, state.canvasHeight, state.gradientSize]);
 
-  // Event handlers
+  // Event handlers - update to use the new rendering system
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -515,15 +852,18 @@ export function GradientCanvas({
     const stopIndex = getColorStopAtPosition(x, y);
     if (stopIndex !== null) {
       setDraggingIndex(stopIndex);
+      interactionTypeRef.current = 'dragging';
       if (stopIndex !== -1) {
         dispatch({ type: 'SET_SELECTED_COLOR_INDEX', payload: stopIndex });
       }
       canvas.setPointerCapture(e.pointerId);
+      requestRender(['handles']);
     } else {
       dispatch({ type: 'SET_SELECTED_COLOR_INDEX', payload: null });
     }
-  }, [getColorStopAtPosition, dispatch]);
+  }, [getColorStopAtPosition, dispatch, requestRender]);
 
+  // Modify handlePointerMove to ensure we have valid updates
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -532,7 +872,7 @@ export function GradientCanvas({
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
-    if (draggingIndex !== null) {
+    if (draggingIndex !== null && draggingIndex >= 0 && draggingIndex < colorStops.length) {
       if (draggingIndex === -1 && gradientStyle === 'conic') {
         // Handle center point dragging
         const centerX = 0.5;
@@ -571,9 +911,12 @@ export function GradientCanvas({
               position = x;
           }
 
+          // Ensure position is within valid range
+          position = Math.max(0, Math.min(1, position));
+
           newStops[draggingIndex] = {
             ...newStops[draggingIndex],
-            position: Math.max(0, Math.min(1, position))
+            position
           };
         }
 
@@ -583,6 +926,9 @@ export function GradientCanvas({
           dispatch({ type: 'SET_COLOR_STOPS', payload: newStops });
         }
       }
+      
+      // Force a redraw
+      drawCanvas();
     } else {
       const hoveredIndex = getColorStopAtPosition(
         e.clientX - rect.left,
@@ -590,18 +936,23 @@ export function GradientCanvas({
       );
       setHoverIndex(hoveredIndex);
     }
-  }, [draggingIndex, colorStops, gradientStyle, isVertical, onColorStopsChange, dispatch, getColorStopAtPosition]);
+  }, [draggingIndex, colorStops, gradientStyle, isVertical, onColorStopsChange, dispatch, getColorStopAtPosition, drawCanvas]);
 
+  // Modify handlePointerUp to add to history when dragging ends
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (canvas && draggingIndex !== null) {
       canvas.releasePointerCapture(e.pointerId);
+      
+      // Add current state to history when dragging ends
+      addToHistory(colorStops);
     }
     setDraggingIndex(null);
+    
     if (draggingIndex !== -1) {
       dispatch({ type: 'SET_SELECTED_COLOR_INDEX', payload: null });
     }
-  }, [draggingIndex, dispatch]);
+  }, [draggingIndex, dispatch, colorStops, addToHistory]);
 
   const handleColorChange = useCallback((color: string, index: number) => {
     const newStops = [...colorStops];
@@ -615,6 +966,48 @@ export function GradientCanvas({
       dispatch({ type: 'SET_COLOR_STOPS', payload: newStops });
     }
   }, [colorStops, onColorStopsChange, dispatch]);
+
+  // Add keyboard shortcut status
+  const [showShortcutHint, setShowShortcutHint] = useState(false);
+  
+  // Show shortcut hint when Ctrl is pressed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        setShowShortcutHint(true);
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) {
+        setShowShortcutHint(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', () => setShowShortcutHint(false));
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', () => setShowShortcutHint(false));
+    };
+  }, []);
+
+  // Add a helper function to convert hex to rgba
+  function hexToRgba(hex: string, alpha: number): string {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Return rgba string
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
 
   return (
     <div className="relative w-full h-full">
@@ -638,6 +1031,44 @@ export function GradientCanvas({
         onPointerLeave={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
+      
+      {/* Undo/Redo Controls */}
+      <div className="absolute top-2 left-2 flex gap-1 opacity-50 hover:opacity-100 transition-opacity">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleUndo}
+          disabled={historyIndex <= 0}
+          className="h-7 w-7 bg-background/80 backdrop-blur-sm"
+          title="Undo (Ctrl+Z)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 14 4 9l5-5"/>
+            <path d="M4 9h10c3 0 7 1 9 5"/>
+          </svg>
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleRedo}
+          disabled={historyIndex >= history.length - 1}
+          className="h-7 w-7 bg-background/80 backdrop-blur-sm"
+          title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 14 5-5-5-5"/>
+            <path d="M4 9h10c3 0 7 1 9 5"/>
+          </svg>
+        </Button>
+      </div>
+      
+      {/* Keyboard shortcut hint */}
+      {showShortcutHint && (
+        <div className="absolute bottom-2 left-2 right-2 p-2 bg-background/80 backdrop-blur-sm text-xs rounded border border-border text-center">
+          Ctrl+Z: Undo • Ctrl+Y: Redo • Double-click: Edit color
+        </div>
+      )}
+      
       {showTrack && (
         <ColorStopTrack 
           colorStops={colorStops}

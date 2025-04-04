@@ -16,7 +16,6 @@ interface GradientSettings {
   style: GradientStyle;
   texture: 'smooth' | 'noise' | 'grain';
   intensity: number;
-  backgroundColor: string;
   size: number;
 }
 
@@ -47,30 +46,6 @@ const GradientStyleControl = memo(({ value, onChange }: {
         <SelectItem value="soft">Soft</SelectItem>
       </SelectContent>
     </Select>
-  </div>
-));
-
-const BackgroundControl = memo(({ value, onChange }: { 
-  value: string; 
-  onChange: (value: string) => void;
-}) => (
-  <div>
-    <Label>Background</Label>
-    <div className="flex gap-2 mt-1.5 sm:mt-2">
-    <div 
-        className="w-9 h-9 rounded-md border border-input cursor-pointer"
-        style={{ backgroundColor: value || '#000000' }}
-      />
-      <div className="flex-1 w-9">
-        <Input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="#000000"
-          className="h-9 w-30"
-        />
-      </div>
-    </div>
   </div>
 ));
 
@@ -178,10 +153,6 @@ function GradientControls({ settings, onSettingsChange, onExport, onRandomize }:
               value={settings.style}
               onChange={(value) => onSettingsChange({ ...settings, style: value })}
             />
-            <BackgroundControl
-              value={settings.backgroundColor}
-              onChange={(value) => onSettingsChange({ ...settings, backgroundColor: value })}
-            />
             <SizeControl
               value={settings.size}
               onChange={(value) => onSettingsChange({ ...settings, size: value })}
@@ -217,7 +188,6 @@ export function GradientStudio() {
     style: state.style,
     texture: state.gradientSettings.texture as 'smooth' | 'noise' | 'grain',
     intensity: state.gradientSettings.intensity,
-    backgroundColor: '#000000',
     size: state.gradientSize
   });
 
@@ -409,12 +379,12 @@ export function GradientStudio() {
     <div className="space-y-4 sm:space-y-6">
       <Card className="p-3 sm:p-6 w-full">
         <div className="h-[200px] sm:h-[300px] relative overflow-hidden rounded-lg"
-          style={{ backgroundColor: settings.backgroundColor || '#000000' }}>
+          style={{ backgroundColor: '#000000' }}>
           <GradientCanvas
             gradientStyle={settings.style}
             showTrack={true}
             showOrientationToggle={true}
-            backgroundColor={settings.backgroundColor}
+            backgroundColor="#000000"
             gradientSize={settings.size}
             onColorStopsChange={(newStops: ColorStop[]) => 
               dispatch({ type: 'SET_COLOR_STOPS', payload: newStops })
