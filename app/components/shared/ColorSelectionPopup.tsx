@@ -1,13 +1,13 @@
 import { cn } from '@/app/lib/utils';
 import { X, ArrowRight, Copy, Check, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface ColorSelectionPopupProps {
   selectedColor: string | null;
   selectedRole?: string | null;
   onCancel: () => void;
-  onShowHarmony?: () => void;
   className?: string;
 }
 
@@ -15,12 +15,24 @@ export function ColorSelectionPopup({
   selectedColor,
   selectedRole,
   onCancel,
-  onShowHarmony,
   className
 }: ColorSelectionPopupProps) {
+  const router = useRouter();
   const [copiedHex, setCopiedHex] = useState(false);
   const [copiedRgb, setCopiedRgb] = useState(false);
   const [copiedHsl, setCopiedHsl] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onCancel]);
 
   if (!selectedColor && !selectedRole) return null;
 
@@ -176,16 +188,23 @@ export function ColorSelectionPopup({
     </button>
   );
 
+  const handleNavigateToHarmony = () => {
+    if (selectedColor) {
+      router.push(`/harmony?color=${encodeURIComponent(selectedColor)}`);
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
+        ref={popupRef}
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         className={cn(
-          "fixed top-6 left-1/2 -translate-x-1/2",
+          "fixed top-14 left-60 -translate-x-1/2",
           "bg-background/90 backdrop-blur-md",
-          "p-5",
+          "p-4",
           "rounded-2xl",
           "border border-zinc-800/90",
           "shadow-[1px_32px_8px_rgba(1,1,1,0.9)]",
@@ -194,8 +213,8 @@ export function ColorSelectionPopup({
           className
         )}
       >
-        <div className="relative z-10 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+        <div className="relative z-10 flex items-start gap-4">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               {selectedColor && (
                 <div 
@@ -205,48 +224,41 @@ export function ColorSelectionPopup({
               )}
               <span className="text-sm font-medium text-accent">Cor selecionada</span>
             </div>
-            <div className="flex items-center gap-2">
-              {selectedColor && onShowHarmony && (
-                <button
-                  onClick={onShowHarmony}
-                  className="p-1.5 hover:bg-accent/10 rounded-lg transition-colors group"
-                >
-                  <Palette className="h-4 w-4 text-accent/70 group-hover:text-accent" />
-                </button>
-              )}
-              <button
-                onClick={onCancel}
-                className="p-1.5 hover:bg-accent/10 rounded-lg transition-colors group"
-              >
-                <X className="h-4 w-4 text-accent/70 group-hover:text-accent" />
-              </button>
-            </div>
+
+            {selectedColor && (
+              <div className="flex flex-col gap-1 min-w-[240px]">
+                <CopyButton value={hexValue} type="hex" copied={copiedHex} />
+                <CopyButton value={rgbValue.string} type="rgb" copied={copiedRgb} />
+                <CopyButton value={hslValue} type="hsl" copied={copiedHsl} />
+              </div>
+            )}
+
+            {selectedRole && (
+              <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/50">
+                <span className="text-sm font-medium capitalize text-zinc-200">{selectedRole}</span>
+                <span className="text-xs text-zinc-600">função</span>
+              </div>
+            )}
           </div>
 
-          {selectedColor && (
-            <div className="flex flex-col gap-1 min-w-[240px]">
-              <CopyButton value={hexValue} type="hex" copied={copiedHex} />
-              <CopyButton value={rgbValue.string} type="rgb" copied={copiedRgb} />
-              <CopyButton value={hslValue} type="hsl" copied={copiedHsl} />
-            </div>
-          )}
-
-          {selectedRole && (
-            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-zinc-800/50">
-              <span className="text-sm font-medium capitalize text-accent">{selectedRole}</span>
-              <span className="text-xs text-accent/50">função</span>
-            </div>
-          )}
-
-          {selectedColor && onShowHarmony && (
+          <div className="flex flex-col gap-2">
+            {selectedColor && (
+              <button
+                onClick={handleNavigateToHarmony}
+                className="p-2 hover:bg-accent/10 rounded-lg transition-colors group"
+                title="Ver Harmonias de Cor"
+              >
+                <Palette className="h-4 w-4 text-accent/70 group-hover:text-accent" />
+              </button>
+            )}
             <button
-              onClick={onShowHarmony}
-              className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-800/70 transition-colors text-zinc-300 hover:text-zinc-100"
+              onClick={onCancel}
+              className="p-2 hover:bg-accent/10 rounded-lg transition-colors group"
+              title="Fechar"
             >
-              <Palette className="h-4 w-4" />
-              <span>Ver Harmonias de Cor</span>
+              <X className="h-4 w-4 text-accent/70 group-hover:text-accent" />
             </button>
-          )}
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>

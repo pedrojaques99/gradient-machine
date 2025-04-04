@@ -44,6 +44,37 @@ interface GradientCanvasProps {
   gradientSize?: number;
 }
 
+// Add this helper function before the GradientCanvas component
+function addTransparency(color: string, opacity: number): string {
+  // For hex colors
+  if (color.startsWith('#')) {
+    // Convert hex opacity (0-1) to hex string (00-FF)
+    const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+    return `${color}${alpha}`;
+  }
+  
+  // For rgb colors
+  if (color.startsWith('rgb')) {
+    // If already rgba, replace the opacity value
+    if (color.startsWith('rgba')) {
+      return color.replace(/rgba\(([^)]+)\)/, (_, params) => {
+        const values = params.split(',').slice(0, 3);
+        return `rgba(${values.join(',')}, ${opacity})`;
+      });
+    }
+    // Convert rgb to rgba
+    return color.replace(/rgb\(([^)]+)\)/, (_, params) => {
+      return `rgba(${params}, ${opacity})`;
+    });
+  }
+  
+  // Default fallback
+  return `rgba(0,0,0,${opacity})`;
+}
+
+// Constants for gradient limits
+const MAX_FLUID_SOFT_STOPS = 8;
+
 export function GradientCanvas({ 
   showTrack = true,
   showOrientationToggle = true,
@@ -175,35 +206,70 @@ export function GradientCanvas({
         case 'fluid':
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          colorStops.forEach((stop, index) => {
+          
+          // Apply safety limit for complex gradients
+          const safeFluidStops = colorStops.length > MAX_FLUID_SOFT_STOPS 
+            ? colorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
+            : colorStops;
+          
+          safeFluidStops.forEach((stop, index) => {
             const x = (stop.x ?? stop.position) * width;
             const y = (stop.y ?? 0.5) * height;
             const gradientRadius = radius * (state.handleSize / 16) * 0.8;
-            const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-            fluidGradient.addColorStop(0, stop.color);
-            fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = fluidGradient;
-            ctx.beginPath();
-            ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-            ctx.fill();
+            
+            try {
+              const fluidGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+              fluidGradient.addColorStop(0, stop.color);
+              fluidGradient.addColorStop(1, 'rgba(0,0,0,0)');
+              
+              ctx.fillStyle = fluidGradient;
+              ctx.beginPath();
+              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+              ctx.fill();
+            } catch (error) {
+              console.error('Error creating fluid gradient:', error);
+              // Continue to next stop on error
+              return;
+            }
           });
           ctx.restore();
           break;
         case 'soft':
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          colorStops.forEach((stop, index) => {
+          
+          // Apply safety limit for complex gradients
+          const safeColorStops = colorStops.length > MAX_FLUID_SOFT_STOPS 
+            ? colorStops.slice(0, MAX_FLUID_SOFT_STOPS) 
+            : colorStops;
+          
+          safeColorStops.forEach((stop, index) => {
             const x = (stop.x ?? stop.position) * width;
             const y = (stop.y ?? 0.5) * height;
             const gradientRadius = radius * (state.handleSize / 16) * 1.2;
             const softGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
-            softGradient.addColorStop(0, stop.color);
-            softGradient.addColorStop(0.5, `${stop.color}80`);
-            softGradient.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = softGradient;
-            ctx.beginPath();
-            ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
-            ctx.fill();
+            
+            try {
+              softGradient.addColorStop(0, stop.color);
+              softGradient.addColorStop(0.5, addTransparency(stop.color, 0.5)); // Use helper function
+              softGradient.addColorStop(1, 'rgba(0,0,0,0)');
+              
+              ctx.fillStyle = softGradient;
+              ctx.beginPath();
+              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+              ctx.fill();
+            } catch (error) {
+              console.error('Error creating soft gradient:', error);
+              // Fallback to simpler gradient
+              const simpleGradient = ctx.createRadialGradient(x, y, 0, x, y, gradientRadius);
+              simpleGradient.addColorStop(0, stop.color);
+              simpleGradient.addColorStop(1, 'rgba(0,0,0,0)');
+              
+              ctx.fillStyle = simpleGradient;
+              ctx.beginPath();
+              ctx.arc(x, y, gradientRadius, 0, Math.PI * 2);
+              ctx.fill();
+            }
           });
           ctx.restore();
           break;
@@ -211,11 +277,30 @@ export function GradientCanvas({
 
       // Add color stops to gradient for non-fluid/soft styles
       if (gradient) {
-        colorStops.forEach(stop => {
-          gradient!.addColorStop(stop.position, stop.color);
-        });
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
+        try {
+          colorStops.forEach(stop => {
+            try {
+              gradient!.addColorStop(stop.position, stop.color);
+            } catch (error) {
+              console.error(`Error adding color stop (${stop.color}) at position ${stop.position}:`, error);
+              // Try with a fallback color
+              gradient!.addColorStop(stop.position, 'rgba(0,0,0,0.5)');
+            }
+          });
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        } catch (error) {
+          console.error('Error rendering gradient:', error);
+          // Fallback to a basic gradient
+          const fallbackGradient = ctx.createLinearGradient(0, 0, width, height);
+          fallbackGradient.addColorStop(0, '#000000');
+          fallbackGradient.addColorStop(1, '#ffffff');
+          ctx.fillStyle = fallbackGradient;
+          ctx.fillRect(0, 0, width, height);
+          
+          // Notify user of the error
+          setError('Error rendering gradient. Try a different style or fewer colors.');
+        }
       }
 
       // Draw effects if enabled

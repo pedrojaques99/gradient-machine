@@ -3,15 +3,19 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/app/lib/utils';
-import { UI_CLASSES, UI_SPACING } from '@/app/lib/constants';
+import { UI_CLASSES, UI_SPACING, GRADIENT_CLASSES, ACCENT_HIGHLIGHT_CLASSES } from '@/app/lib/constants';
 import { ColorPicker } from './color-picker';
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import { Input } from "@/app/components/ui/input";
-import { Pencil } from 'lucide-react';
+import { Pencil, ArrowLeft } from 'lucide-react';
+import { Navigation } from '@/app/components/shared/Navigation';
+import { useRouter } from 'next/navigation';
+import { ColorSwatch } from '@/app/components/shared/ColorSwatch';
+import { useGradient } from '@/app/contexts/GradientContext';
 
 interface ColorHarmonyProps {
-  baseColor: string;
-  onSelect: (color: string) => void;
+  baseColor?: string;
+  onSelect?: (color: string) => void;
   onColorChange?: (color: string) => void;
   className?: string;
 }
@@ -222,121 +226,189 @@ function getHarmonyColors(baseColor: string): HarmonyColors[] {
   return [complementary, analogous, triadic, splitComplementary, tetradic, monochromatic];
 }
 
-export function ColorHarmony({ baseColor, onSelect, onColorChange, className }: ColorHarmonyProps) {
+export function ColorHarmony({ baseColor = '#6366F1', onSelect, onColorChange, className }: ColorHarmonyProps) {
+  const router = useRouter();
+  const { state, dispatch } = useGradient();
   const harmonyColors = React.useMemo(() => getHarmonyColors(baseColor), [baseColor]);
-  const [selectedHarmony, setSelectedHarmony] = React.useState<HarmonyType | null>(null);
   const [expandedHarmony, setExpandedHarmony] = React.useState<HarmonyType | null>(null);
 
+  const handleColorSelect = (color: string) => {
+    if (state.extractedColors.includes(color)) {
+      // If color already exists, do nothing
+      return;
+    }
+    
+    if (state.extractedColors.length >= state.maxColors) {
+      // Show toast or handle max colors reached
+      return;
+    }
+    
+    dispatch({ 
+      type: 'SET_EXTRACTED_COLORS', 
+      payload: [...state.extractedColors, color] 
+    });
+  };
+
   return (
-    <div className={cn('space-y-6', className)}>
-      {harmonyColors.map((harmony) => (
-        <motion.div
-          key={harmony.type}
-          className={cn(
-            UI_CLASSES.card,
-            'p-4 space-y-4 relative overflow-hidden',
-            selectedHarmony === harmony.type && 'ring-2 ring-accent'
-          )}
-          onClick={() => setSelectedHarmony(harmony.type)}
-          whileHover={{ scale: 1.01 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium capitalize text-foreground">
-                {harmony.type.replace('-', ' ')}
-              </h3>
-              <div className="flex gap-1">
-                {harmony.moodTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent"
-                  >
-                    {tag}
-                  </span>
-                ))}
+    <div className="min-h-screen flex flex-col relative">
+      {/* Gradient Background */}
+      <div className="fixed inset-0 -z-10 group">
+        <div className={cn(
+          "absolute inset-0",
+          GRADIENT_CLASSES.base,
+          GRADIENT_CLASSES.colors,
+          GRADIENT_CLASSES.hover
+        )} />
+        <div className={cn(
+          "absolute inset-0",
+          GRADIENT_CLASSES.delayed.base,
+          GRADIENT_CLASSES.delayed.colors,
+          GRADIENT_CLASSES.delayed.hover
+        )} />
+        <div className={cn(
+          "absolute inset-0",
+          GRADIENT_CLASSES.moreDelayed.base,
+          GRADIENT_CLASSES.moreDelayed.colors,
+          GRADIENT_CLASSES.moreDelayed.hover
+        )} />
+        
+        {/* Accent Color Highlights */}
+        <div className={ACCENT_HIGHLIGHT_CLASSES.container}>
+          <div className={cn(ACCENT_HIGHLIGHT_CLASSES.highlight, "top-1/3 left-1/3")} />
+          <div className={cn(ACCENT_HIGHLIGHT_CLASSES.highlight, "bottom-1/3 right-1/3 delay-500")} />
+        </div>
+      </div>
+
+      <Navigation 
+        title="Harmonias de Cor"
+        backTo="/"
+      />
+
+      <main className={cn(
+        "flex-1 flex flex-col",
+        UI_SPACING.container.gap,
+        "px-4 sm:px-6 md:px-8 pb-12"
+      )}>
+        <div className={cn(
+          "w-full max-w-7xl mx-auto",
+          UI_SPACING.section.padding,
+          UI_CLASSES.container,
+          className
+        )}>
+          {/* Base Color Display */}
+          <div className="mb-8 space-y-4">
+            <h2 className={UI_CLASSES.sectionTitle}>Cor Base</h2>
+            <div className="flex items-center gap-4">
+              <ColorSwatch
+                color={baseColor}
+                isSelected={state.extractedColors.includes(baseColor)}
+                onClick={() => handleColorSelect(baseColor)}
+                size="lg"
+              />
+              <div className="space-y-1">
+                <span className="text-sm font-medium text-zinc-200">Cor selecionada</span>
+                <div className="font-mono text-sm text-accent">{baseColor}</div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {harmony.description}
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {harmony.colors.map((color, index) => (
+          {/* Harmony Cards */}
+          <div className="space-y-6">
+            {harmonyColors.map((harmony) => (
               <motion.div
-                key={`${harmony.type}-${index}`}
-                className="group relative"
-                onClick={(e) => e.stopPropagation()}
+                key={harmony.type}
+                className={cn(
+                  UI_CLASSES.card,
+                  'p-4 space-y-4 relative overflow-hidden'
+                )}
+                whileHover={{ scale: 1.01 }}
+                transition={{ duration: 0.2 }}
               >
-                <motion.button
-                  className={cn(
-                    'relative h-16 w-full rounded-md transition-all duration-300',
-                    'hover:scale-105 active:scale-95',
-                    'focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2',
-                    color === baseColor && 'ring-2 ring-accent ring-offset-2'
-                  )}
-                  style={{ backgroundColor: color }}
-                  onClick={() => onSelect(color)}
-                  whileHover={{ y: -2 }}
-                >
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-md" />
-                  <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[10px] font-mono text-white/90 bg-black/40 px-1 rounded">
-                      {color}
-                    </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium capitalize text-foreground">
+                      {harmony.type.replace('-', ' ')}
+                    </h3>
+                    <div className="flex gap-1">
+                      {harmony.moodTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <span className="sr-only">{harmony.labels[index]}</span>
-                </motion.button>
-                {onColorChange && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 p-1 rounded-full hover:bg-black/60"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Pencil className="h-3 w-3 text-white" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <ColorPicker
+                  <p className="text-xs text-muted-foreground">
+                    {harmony.description}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {harmony.colors.map((color, index) => (
+                    <div
+                      key={`${harmony.type}-${index}`}
+                      className="group relative"
+                    >
+                      <ColorSwatch
                         color={color}
-                        onChange={onColorChange}
-                        compact
+                        isSelected={state.extractedColors.includes(color)}
+                        onClick={() => handleColorSelect(color)}
+                        size="lg"
                       />
-                    </PopoverContent>
-                  </Popover>
+                      {onColorChange && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 p-1 rounded-full hover:bg-black/60"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Pencil className="h-3 w-3 text-white" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <ColorPicker
+                              color={color}
+                              onChange={onColorChange}
+                              compact
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {expandedHarmony === harmony.type && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-4 space-y-3 border-t border-zinc-800"
+                  >
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-foreground">Psychological Impact</h4>
+                      <p className="text-xs text-muted-foreground">{harmony.psychologicalImpact}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-foreground">Usage Tips</h4>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        {harmony.usageTips.map((tip, i) => (
+                          <li key={i} className="flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-accent/50" />
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </motion.div>
                 )}
               </motion.div>
             ))}
           </div>
-
-          {expandedHarmony === harmony.type && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="pt-4 space-y-3 border-t border-zinc-800"
-            >
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-foreground">Psychological Impact</h4>
-                <p className="text-xs text-muted-foreground">{harmony.psychologicalImpact}</p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-foreground">Usage Tips</h4>
-                <ul className="text-xs text-muted-foreground space-y-1">
-                  {harmony.usageTips.map((tip, i) => (
-                    <li key={i} className="flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-accent/50" />
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </motion.div>
-          )}
-        </motion.div>
-      ))}
+        </div>
+      </main>
     </div>
   );
 } 

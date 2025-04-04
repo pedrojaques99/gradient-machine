@@ -194,7 +194,7 @@ export const COLOR_ROLES: ColorRole[] = [
   {
     id: 'primary',
     name: "Primária",
-    description: "Cor principal da marca",
+    description: "Cor principal",
     example: "Botões, links e ações principais",
     criteria: {
       brightness: [0.3, 0.7],

@@ -234,7 +234,18 @@ export function GradientStudio() {
       type: 'SET_STYLE',
       payload: settings.style
     });
-  }, [settings, dispatch]);
+
+    // Limit color stops based on gradient style
+    if (settings.style === 'fluid' || settings.style === 'soft') {
+      const MAX_STOPS = 8;
+      if (state.colorStops.length > MAX_STOPS) {
+        dispatch({
+          type: 'SET_COLOR_STOPS',
+          payload: state.colorStops.slice(0, MAX_STOPS)
+        });
+      }
+    }
+  }, [settings, dispatch, state.colorStops]);
 
   // Update texture effects based on settings
   useEffect(() => {
@@ -254,6 +265,23 @@ export function GradientStudio() {
     }
   }, [settings.texture, settings.intensity, dispatch]);
 
+  // Handler for gradient style change
+  const handleStyleChange = useCallback((style: GradientStyle) => {
+    // Get basic color stops (reduce to 4 if switching to fluid or soft)
+    const MAX_COMPLEX_STOPS = 4;
+    let newStops = [...state.colorStops];
+    
+    if ((style === 'fluid' || style === 'soft') && newStops.length > MAX_COMPLEX_STOPS) {
+      newStops = newStops.slice(0, MAX_COMPLEX_STOPS);
+      dispatch({ type: 'SET_COLOR_STOPS', payload: newStops });
+    }
+    
+    setSettings({
+      ...settings,
+      style
+    });
+  }, [settings, state.colorStops, dispatch]);
+
   // Add randomize function
   const handleRandomize = useCallback(() => {
     const styles: GradientStyle[] = ['linear', 'radial', 'conic', 'diagonal', 'fluid', 'soft'];
@@ -261,15 +289,26 @@ export function GradientStudio() {
     
     // Get available colors from state
     const availableColors = [...state.extractedColors];
+    if (availableColors.length === 0) {
+      availableColors.push('#000000', '#ffffff');
+    }
     
-    // Generate 2-4 random color stops
-    const numStops = Math.floor(Math.random() * 3) + 2; // 2 to 4 stops
+    // Select random style
+    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+    
+    // Generate appropriate number of color stops based on style
+    const maxStops = (randomStyle === 'fluid' || randomStyle === 'soft') ? 4 : 8;
+    const numStops = Math.min(
+      maxStops,
+      Math.max(2, Math.floor(Math.random() * 3) + 2) // 2-4 stops, but no more than maxStops
+    );
+    
     const newStops: ColorStop[] = [];
     
     for (let i = 0; i < numStops; i++) {
       // Get random color from available colors
       const randomIndex = Math.floor(Math.random() * availableColors.length);
-      const color = availableColors[randomIndex];
+      const color = availableColors[randomIndex] || '#000000';
       
       // Calculate position (ensure first is 0 and last is 1)
       let position;
@@ -277,7 +316,14 @@ export function GradientStudio() {
       else if (i === numStops - 1) position = 1;
       else position = Math.random();
       
-      newStops.push({ id: `stop-${i}`, color, position });
+      newStops.push({ 
+        id: `stop-${i}`, 
+        color, 
+        position,
+        // Add x,y for fluid/soft gradients
+        x: randomStyle === 'fluid' || randomStyle === 'soft' ? Math.random() : undefined,
+        y: randomStyle === 'fluid' || randomStyle === 'soft' ? Math.random() : undefined
+      });
       
       // Remove used color to avoid duplicates
       availableColors.splice(randomIndex, 1);
@@ -286,13 +332,15 @@ export function GradientStudio() {
       if (availableColors.length === 0) break;
     }
     
-    // Sort stops by position
-    newStops.sort((a, b) => a.position - b.position);
+    // Sort stops by position for linear gradients
+    if (randomStyle !== 'fluid' && randomStyle !== 'soft') {
+      newStops.sort((a, b) => a.position - b.position);
+    }
     
     // Update gradient settings
     const newSettings: GradientSettings = {
       ...settings,
-      style: styles[Math.floor(Math.random() * styles.length)],
+      style: randomStyle,
       texture: textures[Math.floor(Math.random() * textures.length)],
       intensity: Math.random() * 0.5 + 0.2, // Random intensity between 0.2 and 0.7
     };
@@ -377,7 +425,14 @@ export function GradientStudio() {
 
       <GradientControls
         settings={settings}
-        onSettingsChange={setSettings}
+        onSettingsChange={(newSettings) => {
+          // Check if style changed
+          if (newSettings.style !== settings.style) {
+            handleStyleChange(newSettings.style);
+          } else {
+            setSettings(newSettings);
+          }
+        }}
         onExport={handleExport}
         onRandomize={handleRandomize}
       />

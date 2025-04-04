@@ -26,7 +26,9 @@ export function ImageUploadPreview({
   size = 'sm',
   className
 }: ImageUploadPreviewProps) {
-  const containerSize = size === 'sm' ? 'w-[300px] h-[160px]' : 'w-[250px] h-[250px]';
+  const containerSize = size === 'sm' 
+    ? 'w-full h-[160px] sm:w-[300px]' 
+    : 'w-full aspect-square max-w-[300px]';
   const bgOpacity = size === 'sm' ? 'bg-zinc-900/30' : 'bg-zinc-900/50';
   const inputId = `image-upload-${size}`;
 
@@ -59,7 +61,8 @@ export function ImageUploadPreview({
                   className="gap-1 bg-zinc-900/90 hover:bg-zinc-800/90 text-xs h-8"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Alterar imagem
+                  <span className="hidden sm:inline">Alterar imagem</span>
+                  <span className="sm:hidden">Alterar</span>
                 </Button>
               </div>
             </div>
@@ -97,13 +100,14 @@ export function ImageUploadPreview({
           </TooltipProvider>
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
           <UploadButton 
             onUpload={onUpload} 
             hasImage={false}
             isLoading={isExtracting}
             title="Upload Image"
             imagePreview={undefined}
+            className="w-full sm:w-auto"
           />
         </div>
       )}

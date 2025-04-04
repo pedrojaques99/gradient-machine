@@ -6,7 +6,7 @@ import { useGradient } from '@/app/contexts/GradientContext';
 import { UploadButton } from '@/app/components/shared/UploadButton';
 import { Navigation } from '@/app/components/shared/Navigation';
 import { Label } from '@/app/components/ui/label';
-import { Wand2, Check, ArrowRight, Paintbrush, X, RefreshCw, Pencil, AlertCircle } from 'lucide-react';
+import { Wand2, Check, ArrowRight, Paintbrush, X, RefreshCw, Pencil, AlertCircle, Palette } from 'lucide-react';
 import { rgbToHex, cn } from '@/app/lib/utils';
 import { Button } from '@/app/components/ui/button';
 import {
@@ -28,6 +28,7 @@ import { ImageUploadPreview } from '@/app/components/shared/ImageUploadPreview';
 import { GRADIENT_CLASSES, ACCENT_HIGHLIGHT_CLASSES, UI_SPACING, UI_CLASSES } from '@/app/lib/constants';
 import { ColorSwatch } from '@/app/components/shared/ColorSwatch';
 import { ColorSelectionPopup } from '@/app/components/shared/ColorSelectionPopup';
+import { useRouter } from 'next/navigation';
 
 type DesignSystem = Partial<Record<DesignSystemRoleId, string>>;
 
@@ -287,6 +288,7 @@ const showToast = (message: string, type: 'warning' | 'success' | 'error' = 'war
 };
 
 export function ColorDiscovery() {
+  const router = useRouter();
   const { state, dispatch } = useGradient();
   const [isExtracting, setIsExtracting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -297,8 +299,6 @@ export function ColorDiscovery() {
   const [focusedRole, setFocusedRole] = useState<DesignSystemRoleId | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const [showHarmony, setShowHarmony] = useState(false);
-  const [showHarmonyFor, setShowHarmonyFor] = useState<string | null>(null);
 
   // Group colors by role (same logic as ColorSidebar)
   const roleColors = useMemo(() => {
@@ -357,7 +357,7 @@ export function ColorDiscovery() {
     setIsSelecting(false);
   }, []);
 
-  // Update handleColorSelect to handle double-click
+  // Update handleColorSelect to remove showHarmony reference
   const handleColorSelect = useCallback((color: string) => {
     setIsSelecting(true);
     setSelectionError(null);
@@ -378,7 +378,6 @@ export function ColorDiscovery() {
     // Otherwise, just select the color
     setSelectedColor(color);
     setFocusedRole(null);
-    setShowHarmony(false);
   }, [selectedColor, selectedRole, handleRoleAssign, handleCancel]);
 
   // Update handleRoleSelect to handle double-click
@@ -602,42 +601,11 @@ export function ColorDiscovery() {
     });
   }, [dispatch, state.extractedColors, state.maxColors]);
 
-  // Add harmony handler
-  const handleShowHarmony = useCallback(() => {
-    if (selectedColor) {
-      setShowHarmonyFor(selectedColor);
-    }
-  }, [selectedColor]);
+  // Replace handleShowHarmony with navigation
+  const handleNavigateToHarmony = useCallback((color: string) => {
+    router.push(`/harmony?color=${encodeURIComponent(color)}`);
+  }, [router]);
 
-  // Add harmony selection handler
-  const handleHarmonySelect = useCallback((harmonicColor: string) => {
-    if (state.extractedColors.length >= state.maxColors) {
-      showToast(`Maximum ${state.maxColors} colors allowed. Remove some colors before adding more.`);
-      return;
-    }
-    
-    dispatch({ 
-      type: 'SET_EXTRACTED_COLORS', 
-      payload: [...state.extractedColors, harmonicColor] 
-    });
-    setShowHarmonyFor(null);
-  }, [dispatch, state.extractedColors, state.maxColors]);
-
-  // Add color limit indicator to the UI
-  const ColorLimitIndicator = () => {
-    const remaining = state.maxColors - state.extractedColors.length;
-    const isLimitReached = state.extractedColors.length >= state.maxColors;
-
-    return (
-      <div className={cn(
-        "flex items-center gap-2 text-xs font-medium",
-        isLimitReached ? "text-red-400" : "text-muted-foreground"
-      )}>
-        {isLimitReached && <AlertCircle className="h-3 w-3" />}
-        <span>{remaining === 0 ? "Color limit reached" : `${remaining} colors remaining`}</span>
-      </div>
-    );
-  };
 
   // Memoize color variations computation
   const colorVariations = useMemo(() => {
@@ -720,7 +688,6 @@ export function ColorDiscovery() {
         selectedColor={selectedColor}
         selectedRole={selectedRole}
         onCancel={handleCancel}
-        onShowHarmony={handleShowHarmony}
       />
 
       {/* Gradient Background */}
@@ -779,7 +746,7 @@ export function ColorDiscovery() {
               Crie paletas de cores perfeitas a partir de qualquer imagem
             </p>
             <p className="text-xs text-muted-foreground">
-              Arraste uma imagem, cole com Ctrl+V ou clique para fazer upload
+              Arraste uma imagem, cole com <b>Ctrl+V</b> ou clique para fazer upload
             </p>
           </div>
         </section>
@@ -826,26 +793,27 @@ export function ColorDiscovery() {
               animate={{ opacity: 1 }}
             >
               {/* Step 2: Image Preview & Extracted Colors */}
-              <div className="flex flex-col lg:flex-row gap-8 items-start">
+              <div className="flex flex-col lg:flex-row gap-4">
                 {/* Image Preview */}
-                <div className="w-full lg:w-1/2 min-w-0">
-                  <ImageUploadPreview
-                    imagePreview={imagePreview}
-                    onUpload={handleUpload}
-                    onRemove={handleRemoveImage}
-                    isExtracting={isExtracting}
-                    size="lg"
-                  />
+                <div className="w-full lg:w-1/3 min-w-0 flex justify-center lg:justify-center">
+                  <div className="w-full max-w-[300px]">
+                    <ImageUploadPreview
+                      imagePreview={imagePreview}
+                      onUpload={handleUpload}
+                      onRemove={handleRemoveImage}
+                      isExtracting={isExtracting}
+                      size="lg"
+                    />
+                  </div>
                 </div>
 
                 {/* Extracted Colors Grid */}
-                <div className="w-full lg:w-1/2 min-w-0">
-                  <div className="space-y-4">
+                <div className="w-full lg:w-2/3 min-w-0">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h2 className={UI_CLASSES.sectionTitle}>Cores extraídas</h2>
-                      <ColorLimitIndicator />
                     </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-1 sm:gap-2 md:gap-3">
                       {state.extractedColors.map((color, index) => (
                         <ColorSwatch
                           key={color + index}
@@ -853,6 +821,8 @@ export function ColorDiscovery() {
                           isSelected={selectedColor === color}
                           onClick={() => handleColorSelect(color)}
                           size='lg'
+                          className="transition-transform duration-200 ease-out hover:scale-105 hover:z-10"
+                          showHex
                         />
                       ))}
                     </div>
@@ -953,11 +923,6 @@ export function ColorDiscovery() {
                                 <p className="text-xs text-zinc-400 group-hover:text-zinc-300 line-clamp-2 sm:line-clamp-1">
                                   {currentRole.description}
                                 </p>
-                                {state.designSystem[currentRole.id] && (
-                                  <span className="text-xs font-mono text-accent/70 shrink-0">
-                                    {state.designSystem[currentRole.id]}
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -970,7 +935,7 @@ export function ColorDiscovery() {
                                   className="w-6 h-6 rounded-lg ring-2 ring-accent/30 shrink-0"
                                   style={{ backgroundColor: state.designSystem[currentRole.id] }}
                                 />
-                                <span className="text-xs font-mono text-accent/70 hidden sm:block">
+                                <span className="text-xs font-mono text-accent/70">
                                   {state.designSystem[currentRole.id]}
                                 </span>
                               </div>
@@ -1019,45 +984,6 @@ export function ColorDiscovery() {
           )}
         </section>
       </main>
-
-      {/* Add Harmony Section after Role Cards */}
-      {showHarmonyFor && (
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 overflow-y-auto"
-        >
-          <div className="min-h-screen flex items-center justify-center p-4">
-            <motion.div 
-              className="w-full max-w-3xl bg-zinc-900/90 rounded-xl border border-zinc-800/50 p-6 space-y-6"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-8 h-8 rounded-lg ring-2 ring-accent/30"
-                    style={{ backgroundColor: showHarmonyFor }}
-                  />
-                  <h2 className="text-lg font-medium text-zinc-200">Harmonias de Cor</h2>
-                </div>
-                <button
-                  onClick={() => setShowHarmonyFor(null)}
-                  className="p-2 hover:bg-accent/10 rounded-lg transition-colors"
-                >
-                  <X className="h-5 w-5 text-accent/70" />
-                </button>
-              </div>
-
-              <ColorHarmony
-                baseColor={showHarmonyFor}
-                onSelect={handleHarmonySelect}
-              />
-            </motion.div>
-          </div>
-        </motion.section>
-      )}
     </div>
   );
 } 
